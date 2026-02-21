@@ -1,26 +1,19 @@
-import React from 'react';
-import logo from './logo.svg';
-import './App.css';
+import { useState } from "react";
+import { AuthMode } from "./types/auth";
+import LoginPage from "./pages/auth/LoginPage";
+import RegisterPage from "./pages/auth/RegisterPage";
+import HomePage from "./pages/auth/HomePage";
 
-function App() {
-  return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.tsx</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
-  );
+type AppPage = "login" | "register" | "home";
+
+export default function App() {
+  const [page, setPage] = useState<AppPage>("login");
+
+  const handleAuthSwitch = (mode: AuthMode) => setPage(mode);
+
+  if (page === "home") return <HomePage />;
+
+  return page === "login"
+    ? <LoginPage onSwitch={handleAuthSwitch} onLogin={() => setPage("home")} />
+    : <RegisterPage onSwitch={handleAuthSwitch} onRegister={() => setPage("home")} />;
 }
-
-export default App;
