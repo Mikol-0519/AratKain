@@ -1,67 +1,134 @@
-import { useState } from "react";
-import "../../styles/auth.css";
-import { AuthMode, FormState, FormErrors } from "../../types/auth";
-import FormInput from "../../components/auth/FormInput";
-import MapVisual from "../../components/auth/MapVisual";
+import { useState } from 'react';
+import '../../styles/auth.css';
+import { AuthMode } from '../../types/auth';
+import FormInput from '../../components/auth/FormInput';
+import LeftPanel from '../../components/auth/LeftPanel';
+import { loginUser, AuthError, AuthUser } from '../../services/authService';
 
 interface LoginPageProps {
-  onSwitch: (mode: AuthMode) => void;
-  onLogin: () => void;
+  onSwitch:  (mode: AuthMode) => void;
+  onSuccess: (user: AuthUser) => void;
 }
 
-export default function LoginPage({ onSwitch, onLogin }: LoginPageProps) {
-  const [form, setForm] = useState<Pick<FormState, "email" | "password">>({
-    email: "",
-    password: "",
-  });
-  const [errors, setErrors] = useState<Pick<FormErrors, "email" | "password">>({});
+export default function LoginPage({ onSwitch, onSuccess }: LoginPageProps) {
+  const [email,       setEmail]       = useState('');
+  const [password,    setPassword]    = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [serverError, setServerError] = useState('');
+  const [loading,     setLoading]     = useState(false);
 
-  const update = (field: "email" | "password", val: string): void => {
-    setForm((prev) => ({ ...prev, [field]: val }));
+  // Clear a specific field error when user starts typing
+  const handleEmailChange = (val: string) => {
+    setEmail(val);
+    setFieldErrors((p) => ({ ...p, email: '' }));
+    setServerError('');
   };
 
-  const validate = (): boolean => {
-    const e: Pick<FormErrors, "email" | "password"> = {};
-    if (!form.email.includes("@")) e.email = "Enter a valid email";
-    if (form.password.length < 6) e.password = "Password must be at least 6 characters";
-    setErrors(e);
-    return Object.keys(e).length === 0;
+  const handlePasswordChange = (val: string) => {
+    setPassword(val);
+    setFieldErrors((p) => ({ ...p, password: '' }));
+    setServerError('');
   };
 
-  const handleSubmit = (): void => {
-    if (validate()) onLogin();
+  const handleSubmit = async (): Promise<void> => {
+    setLoading(true);
+    setServerError('');
+    setFieldErrors({});
+
+    try {
+      const user = await loginUser(email, password);
+      onSuccess(user);
+    } catch (err) {
+      const authErr = err as AuthError;
+
+      switch (authErr.type) {
+        case 'VALIDATION_ERROR':
+          setFieldErrors(authErr.fieldErrors ?? {});
+          break;
+        case 'INVALID_CREDENTIALS':
+          setServerError('Invalid email or password. Please check your credentials and try again.');
+          break;
+        case 'SERVER_ERROR':
+        default:
+          setServerError('A server error occurred. Please try again later.');
+          break;
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Allow submitting with Enter key
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') handleSubmit();
   };
 
   return (
     <div className="auth-container">
-      <div className="left-panel">
-        <div className="brand">
-          <div className="brand-tag">Discover · Explore · Savor</div>
-          <div className="brand-name">Arat<span>Kain</span></div>
-          <div className="brand-tagline">Find the best cafes & restaurants near you</div>
-        </div>
-        <div className="visual-block"><MapVisual /></div>
-        <div className="left-footer">
-          <p>Connecting food lovers with hidden gems, local favorites, and new discoveries in your neighborhood — one pin at a time.</p>
-        </div>
-      </div>
+      <LeftPanel />
 
       <div className="right-panel">
-        <div className="form-card fade-in">
+        <div className="form-card fade-in" onKeyDown={handleKeyDown}>
+
           <div className="form-header">
             <div className="form-eyebrow">Welcome back</div>
             <div className="form-title">Login</div>
             <div className="form-subtitle">Sign in to discover nearby spots</div>
           </div>
-          <FormInput label="Email" type="email" placeholder="you@example.com" value={form.email} onChange={(v) => update("email", v)} error={errors.email} />
-          <FormInput label="Password" type="password" placeholder="••••••••" value={form.password} onChange={(v) => update("password", v)} error={errors.password}>
-            <span className="forgot-link" onClick={() => alert("Reset link sent!")}>Forgot Password?</span>
+
+          {/* ── Server / Global Error Banner ── */}
+          {serverError && (
+            <div className="error-banner" role="alert">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8"  x2="12"    y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              {serverError}
+            </div>
+          )}
+
+          {/* ── Email ── */}
+          <FormInput
+            label="Email"
+            type="email"
+            placeholder="you@example.com"
+            value={email}
+            onChange={handleEmailChange}
+            error={fieldErrors.email}
+          />
+
+          {/* ── Password ── */}
+          <FormInput
+            label="Password"
+            type="password"
+            placeholder="••••••••"
+            value={password}
+            onChange={handlePasswordChange}
+            error={fieldErrors.password}
+          >
+            <span className="forgot-link" onClick={() => alert('Password reset link sent!')}>
+              Forgot Password?
+            </span>
           </FormInput>
-          <button className="btn-primary" onClick={handleSubmit}>Login</button>
+
+          {/* ── Submit ── */}
+          <button
+            className="btn-primary"
+            onClick={handleSubmit}
+            disabled={loading}
+          >
+            {loading ? <span className="spinner" /> : 'Login'}
+          </button>
+
           <div className="divider"><span>or</span></div>
+
           <div className="switch-link">
-            Don't have an account? <button onClick={() => onSwitch("register")}>Register</button>
+            Don&apos;t have an account?{' '}
+            <button onClick={() => onSwitch('register')}>Register</button>
           </div>
+
         </div>
       </div>
     </div>
