@@ -6,7 +6,6 @@ import StrengthMeter from '../../components/auth/StrengthMeter';
 import LeftPanel from '../../components/auth/LeftPanel';
 import { registerUser, AuthError, AuthUser } from '../../services/authService';
 import { getPasswordStrength } from '../../utils/PasswordStrength';
-
 interface RegisterPageProps {
   onSwitch:  (mode: AuthMode) => void;
   onSuccess: (user: AuthUser) => void;
@@ -21,6 +20,8 @@ export default function RegisterPage({ onSwitch, onSuccess }: RegisterPageProps)
   const [fieldErrors,     setFieldErrors]     = useState<Record<string, string>>({});
   const [serverError,     setServerError]     = useState('');
   const [loading,         setLoading]         = useState(false);
+  const [registered,      setRegistered]      = useState(false);
+  const [registeredUser,  setRegisteredUser]  = useState<AuthUser | null>(null);
 
   const clearField = (field: string) => {
     setFieldErrors((p) => ({ ...p, [field]: '' }));
@@ -34,10 +35,10 @@ export default function RegisterPage({ onSwitch, onSuccess }: RegisterPageProps)
 
     try {
       const user = await registerUser(username, fullname, email, password, confirmPassword);
-      onSuccess(user);
+      setRegisteredUser(user);
+      setRegistered(true);
     } catch (err) {
       const authErr = err as AuthError;
-
       switch (authErr.type) {
         case 'VALIDATION_ERROR':
           setFieldErrors(authErr.fieldErrors ?? {});
@@ -51,7 +52,6 @@ export default function RegisterPage({ onSwitch, onSuccess }: RegisterPageProps)
         case 'USER_ALREADY_EXISTS':
           setServerError(authErr.message);
           break;
-        case 'SERVER_ERROR':
         default:
           setServerError('A server error occurred. Please try again later.');
           break;
@@ -67,6 +67,75 @@ export default function RegisterPage({ onSwitch, onSuccess }: RegisterPageProps)
 
   const strength = getPasswordStrength(password);
 
+  // ── Success Screen ────────────────────────────────────────
+  if (registered && registeredUser) {
+    return (
+      <div className="auth-container">
+        <LeftPanel />
+        <div className="right-panel">
+          <div className="form-card fade-in" style={{ textAlign: 'center' }}>
+
+            {/* Checkmark */}
+            <div style={{
+              width: 72, height: 72,
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, #2C7A4B, #3da367)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              margin: '0 auto 1.5rem',
+              boxShadow: '0 8px 24px rgba(44,122,75,0.3)',
+            }}>
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none"
+                   stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </div>
+
+            <div style={{
+              fontFamily: "'Playfair Display', serif",
+              fontSize: '1.75rem', fontWeight: 700,
+              color: '#2C1A0E', marginBottom: '0.5rem',
+            }}>
+              Welcome to AratKain!
+            </div>
+
+            <div style={{ fontSize: '0.9rem', color: '#8A7060', marginBottom: '0.25rem' }}>
+              Account created successfully
+            </div>
+
+            <div style={{
+              fontSize: '1rem', fontWeight: 600,
+              color: '#B85C38', marginBottom: '1.5rem',
+            }}>
+              {registeredUser.username}
+            </div>
+
+            <div style={{
+              background: '#F7F2EA',
+              borderRadius: 12, padding: '1rem',
+              fontSize: '0.82rem', color: '#8A7060',
+              marginBottom: '2rem', lineHeight: 1.6,
+            }}>
+              You're all set! Start discovering cafes and restaurants near you.
+            </div>
+
+            <button
+              className="btn-primary"
+              onClick={() => onSuccess(registeredUser)}
+            >
+              Go to Map →
+            </button>
+
+            <div className="switch-link" style={{ marginTop: '1rem' }}>
+              <button onClick={() => onSwitch('login')}>Back to Login</button>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Register Form ─────────────────────────────────────────
   return (
     <div className="auth-container">
       <LeftPanel />
@@ -80,7 +149,7 @@ export default function RegisterPage({ onSwitch, onSuccess }: RegisterPageProps)
             <div className="form-subtitle">Start your food discovery journey</div>
           </div>
 
-          {/* ── Server / Global Error Banner ── */}
+          {/* Server Error Banner */}
           {serverError && (
             <div className="error-banner" role="alert">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
@@ -93,7 +162,6 @@ export default function RegisterPage({ onSwitch, onSuccess }: RegisterPageProps)
             </div>
           )}
 
-          {/* ── Email ── */}
           <FormInput
             label="Email"
             type="email"
@@ -103,7 +171,6 @@ export default function RegisterPage({ onSwitch, onSuccess }: RegisterPageProps)
             error={fieldErrors.email}
           />
 
-          {/* ── Username ── */}
           <FormInput
             label="Username"
             placeholder="e.g. foodlover_ph"
@@ -112,7 +179,6 @@ export default function RegisterPage({ onSwitch, onSuccess }: RegisterPageProps)
             error={fieldErrors.username}
           />
 
-          {/* ── Full Name ── */}
           <FormInput
             label="Full Name"
             placeholder="Your full name"
@@ -121,7 +187,6 @@ export default function RegisterPage({ onSwitch, onSuccess }: RegisterPageProps)
             error={fieldErrors.fullname}
           />
 
-          {/* ── Password with strength meter ── */}
           <div className="form-group">
             <label className="form-label">Password</label>
             <input
@@ -145,7 +210,6 @@ export default function RegisterPage({ onSwitch, onSuccess }: RegisterPageProps)
             )}
           </div>
 
-          {/* ── Confirm Password ── */}
           <FormInput
             label="Confirm Password"
             type="password"
@@ -155,7 +219,6 @@ export default function RegisterPage({ onSwitch, onSuccess }: RegisterPageProps)
             error={fieldErrors.confirmPassword}
           />
 
-          {/* ── Submit ── */}
           <button
             className="btn-primary"
             onClick={handleSubmit}

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { supabase } from "../../services/supabaseClient";
 
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500&display=swap');
@@ -21,7 +22,6 @@ const styles = `
     font-family: 'DM Sans', sans-serif;
   }
 
-  /* ── Layout ── */
   .home-container {
     display: flex;
     height: 100vh;
@@ -30,7 +30,6 @@ const styles = `
     position: relative;
   }
 
-  /* ── Sidebar ── */
   .sidebar {
     width: var(--sidebar-w);
     height: 100%;
@@ -167,6 +166,44 @@ const styles = `
     line-height: 1;
   }
 
+  /* ── Logout Button ── */
+  .logout-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    border: 1px solid rgba(184,92,56,0.25);
+    background: transparent;
+    color: rgba(184,92,56,0.55);
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    transition: all 0.2s ease;
+  }
+
+  .logout-btn:hover {
+    background: rgba(184,92,56,0.15);
+    color: var(--accent);
+    border-color: rgba(184,92,56,0.5);
+  }
+
+  .logout-btn:active {
+    transform: scale(0.95);
+  }
+
+  .logout-btn svg { width: 18px; height: 18px; stroke-width: 1.8; }
+
+  .logout-btn span {
+    font-size: 0.42rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: inherit;
+    font-weight: 500;
+    line-height: 1;
+  }
+
   /* ── Map Area ── */
   .map-area {
     flex: 1;
@@ -179,7 +216,6 @@ const styles = `
     height: 100%;
   }
 
-  /* ── Search Bar ── */
   .search-bar {
     position: absolute;
     top: 16px;
@@ -242,7 +278,6 @@ const styles = `
     flex-shrink: 0;
   }
 
-  /* ── Filter Pills ── */
   .filter-pills {
     position: absolute;
     top: 68px;
@@ -286,7 +321,6 @@ const styles = `
 
   .pill svg { width: 12px; height: 12px; stroke-width: 2; }
 
-  /* ── Info Card ── */
   .info-card {
     position: absolute;
     bottom: 24px;
@@ -405,7 +439,6 @@ const styles = `
   .close-card:hover { background: var(--steam); }
   .close-card svg { width: 14px; height: 14px; stroke-width: 2; }
 
-  /* ── Nearby Count Chip ── */
   .nearby-chip {
     position: absolute;
     bottom: 24px;
@@ -443,7 +476,6 @@ const styles = `
     color: var(--latte);
   }
 
-  /* ── Leaflet custom marker ── */
   .custom-marker {
     width: 32px;
     height: 32px;
@@ -457,12 +489,10 @@ const styles = `
   }
 
   .custom-marker:hover { transform: rotate(-45deg) scale(1.15); }
-
   .custom-marker.cafe { background: #B85C38; }
   .custom-marker.restaurant { background: #2C1A0E; }
   .custom-marker.bar { background: #C8A97E; }
 
-  /* ── Tooltip ── */
   .marker-tooltip {
     background: var(--espresso) !important;
     color: var(--cream) !important;
@@ -476,7 +506,6 @@ const styles = `
 
   .marker-tooltip::before { display: none !important; }
 
-  /* ── Leaflet overrides ── */
   .leaflet-control-zoom {
     border: none !important;
     border-radius: 12px !important;
@@ -495,11 +524,8 @@ const styles = `
   }
 
   .leaflet-control-zoom a:hover { background: var(--steam) !important; }
-
   .leaflet-control-attribution { display: none !important; }
 `;
-
-// ─── Types ────────────────────────────────────────────────────────────────────
 
 type NavItem = "food" | "saved" | "profile";
 type FilterType = "all" | "cafe" | "restaurant" | "bar";
@@ -515,25 +541,25 @@ interface Spot {
   lng: number;
 }
 
-// ─── Sample Data ──────────────────────────────────────────────────────────────
+interface HomePageProps {
+  onLogout: () => void;
+}
 
 const SPOTS: Spot[] = [
-  { id: 1, name: "Café Intramuros", type: "cafe", rating: 4.7, distance: "120m", status: "Open", lat: 14.5895, lng: 120.9747 },
-  { id: 2, name: "Padre Faura Kitchen", type: "restaurant", rating: 4.5, distance: "340m", status: "Open", lat: 14.5840, lng: 120.9800 },
-  { id: 3, name: "El Nido Bistro", type: "restaurant", rating: 4.3, distance: "560m", status: "Open", lat: 14.5920, lng: 120.9710 },
-  { id: 4, name: "Burnham Brew", type: "cafe", rating: 4.8, distance: "200m", status: "Open", lat: 14.5870, lng: 120.9770 },
-  { id: 5, name: "Sampaguita Bar", type: "bar", rating: 4.2, distance: "780m", status: "Closed", lat: 14.5810, lng: 120.9830 },
-  { id: 6, name: "Rizal Roast", type: "cafe", rating: 4.6, distance: "430m", status: "Open", lat: 14.5950, lng: 120.9680 },
+  { id: 1, name: "Café Intramuros",    type: "cafe",       rating: 4.7, distance: "120m", status: "Open",   lat: 14.5895, lng: 120.9747 },
+  { id: 2, name: "Padre Faura Kitchen",type: "restaurant", rating: 4.5, distance: "340m", status: "Open",   lat: 14.5840, lng: 120.9800 },
+  { id: 3, name: "El Nido Bistro",     type: "restaurant", rating: 4.3, distance: "560m", status: "Open",   lat: 14.5920, lng: 120.9710 },
+  { id: 4, name: "Burnham Brew",       type: "cafe",       rating: 4.8, distance: "200m", status: "Open",   lat: 14.5870, lng: 120.9770 },
+  { id: 5, name: "Sampaguita Bar",     type: "bar",        rating: 4.2, distance: "780m", status: "Closed", lat: 14.5810, lng: 120.9830 },
+  { id: 6, name: "Rizal Roast",        type: "cafe",       rating: 4.6, distance: "430m", status: "Open",   lat: 14.5950, lng: 120.9680 },
 ];
 
-const FILTERS: { id: FilterType; label: string; icon: string }[] = [
-  { id: "all", label: "All", icon: "grid" },
-  { id: "cafe", label: "Cafes", icon: "coffee" },
-  { id: "restaurant", label: "Restaurants", icon: "utensils" },
-  { id: "bar", label: "Bars", icon: "wine" },
+const FILTERS: { id: FilterType; label: string }[] = [
+  { id: "all",        label: "All"         },
+  { id: "cafe",       label: "Cafes"       },
+  { id: "restaurant", label: "Restaurants" },
+  { id: "bar",        label: "Bars"        },
 ];
-
-// ─── Icons ────────────────────────────────────────────────────────────────────
 
 const Icon = {
   food: () => (
@@ -559,33 +585,16 @@ const Icon = {
       <line x1="12" y1="18" x2="12.01" y2="18" />
     </svg>
   ),
+  logout: () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <polyline points="16 17 21 12 16 7" />
+      <line x1="21" y1="12" x2="9" y2="12" />
+    </svg>
+  ),
   search: () => (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
       <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-    </svg>
-  ),
-  grid: () => (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-      <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" />
-      <rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
-    </svg>
-  ),
-  coffee: () => (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-      <path d="M18 8h1a4 4 0 0 1 0 8h-1" />
-      <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z" />
-      <line x1="6" y1="1" x2="6" y2="4" /><line x1="10" y1="1" x2="10" y2="4" /><line x1="14" y1="1" x2="14" y2="4" />
-    </svg>
-  ),
-  utensils: () => (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-      <line x1="3" y1="2" x2="3" y2="22" /><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3z" />
-      <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" />
-    </svg>
-  ),
-  wine: () => (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-      <path d="M8 22h8M12 11v11M6.5 3h11l-1.5 7a5 5 0 0 1-8 0z" />
     </svg>
   ),
   star: () => (
@@ -610,18 +619,24 @@ const Icon = {
   ),
 };
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+export default function HomePage({ onLogout }: HomePageProps) {
+  const mapRef      = useRef<HTMLDivElement>(null);
+  const leafletMap  = useRef<any>(null);
+  const markersRef  = useRef<any[]>([]);
 
-export default function HomePage() {
-  const mapRef = useRef<HTMLDivElement>(null);
-  const leafletMap = useRef<any>(null);
-  const markersRef = useRef<any[]>([]);
-
-  const [activeNav, setActiveNav] = useState<NavItem>("food");
+  const [activeNav,    setActiveNav]    = useState<NavItem>("food");
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
   const [selectedSpot, setSelectedSpot] = useState<Spot | null>(null);
-  const [search, setSearch] = useState("");
+  const [search,       setSearch]       = useState("");
   const [leafletLoaded, setLeafletLoaded] = useState(false);
+  const [loggingOut,   setLoggingOut]   = useState(false);
+
+  // ── Logout handler ────────────────────────────────────────
+  const handleLogout = async () => {
+    setLoggingOut(true);
+    await supabase.auth.signOut();
+    onLogout();
+  };
 
   // Load Leaflet dynamically
   useEffect(() => {
@@ -651,12 +666,9 @@ export default function HomePage() {
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19,
     }).addTo(leafletMap.current);
-
-    // Style the map after tiles load
-    leafletMap.current.on("load", () => {});
   }, [leafletLoaded]);
 
-  // Update markers on filter/selection change
+  // Update markers
   useEffect(() => {
     if (!leafletLoaded || !leafletMap.current) return;
     const L = (window as any).L;
@@ -712,8 +724,8 @@ export default function HomePage() {
           <nav className="sidebar-nav">
             {(
               [
-                { id: "food" as NavItem, icon: <Icon.food /> },
-                { id: "saved" as NavItem, icon: <Icon.bookmark /> },
+                { id: "food"    as NavItem, icon: <Icon.food /> },
+                { id: "saved"   as NavItem, icon: <Icon.bookmark /> },
                 { id: "profile" as NavItem, icon: <Icon.user /> },
               ] as const
             ).map(({ id, icon }) => (
@@ -731,7 +743,18 @@ export default function HomePage() {
           <div className="sidebar-bottom">
             <button className="get-app-btn" title="Get App">
               <Icon.phone />
-              <span>Get App</span>
+              <span>App</span>
+            </button>
+
+            {/* ── Logout Button ── */}
+            <button
+              className="logout-btn"
+              title="Log out"
+              onClick={handleLogout}
+              disabled={loggingOut}
+            >
+              <Icon.logout />
+              <span>{loggingOut ? "..." : "Out"}</span>
             </button>
           </div>
         </aside>
@@ -780,10 +803,7 @@ export default function HomePage() {
                 </div>
                 <div
                   className="info-card-badge"
-                  style={{
-                    background:
-                      selectedSpot.status === "Open" ? "#2C7A4B" : "#8A7060",
-                  }}
+                  style={{ background: selectedSpot.status === "Open" ? "#2C7A4B" : "#8A7060" }}
                 >
                   {selectedSpot.status}
                 </div>

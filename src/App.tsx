@@ -4,17 +4,18 @@ import { AuthUser } from './services/authService';
 import { AppPage } from './types/auth';
 import LoginPage    from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
-import HomePage     from './pages/auth/HomePage';  
+import HomePage from './pages/auth/HomePage';
 
 export default function App() {
   const [page,    setPage]    = useState<AppPage>('login');
   const [user,    setUser]    = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Restore session on refresh
+  // Check for existing Supabase session on mount
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user) {
+        // Fetch profile from users table
         const { data: profile } = await supabase
           .from('users')
           .select('username, fullname')
@@ -57,7 +58,7 @@ export default function App() {
   }
 
   if (page === 'dashboard' && user) {
-    return <HomePage />;
+    return <HomePage onLogout={handleLogout} />;
   }
 
   if (page === 'register') {
