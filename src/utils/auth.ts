@@ -1,18 +1,14 @@
-export type AuthMode = "login" | "register";
-
-export interface FormState {
-  email: string;
-  name: string;
-  password: string;
-  confirm: string;
-}
+export type AuthMode = 'login' | 'register';
+export type AppPage  = 'landing' | 'login' | 'register' | 'dashboard';
 
 export interface FormErrors {
-  email?: string;
-  name?: string;
-  password?: string;
-  confirm?: string;
+  username?:        string;
+  fullname?:        string;
+  email?:           string;
+  password?:        string;
+  confirmPassword?: string;
 }
+
 
 export type StrengthLevel = 0 | 1 | 2 | 3 | 4;
 export type StrengthClass =
