@@ -1,46 +1,122 @@
-# Getting Started with Create React App
+# AratKain ☕🍽️
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+**AratKain** is a web-based cafe and restaurant navigator that helps users easily find nearby cafes and restaurants. The application allows users to explore dining options, view locations, and manage their personal accounts.
 
-## Available Scripts
+## 📌 Project Description
 
-In the project directory, you can run:
+AratKain is designed to make it easier for users to discover places to eat around them. The platform provides a simple and intuitive interface where users can search for nearby cafes and restaurants, save their favorite locations, and manage their profiles.
 
-### `npm start`
+This system is built as a **web application** with a modern frontend and a scalable backend architecture.
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+## 🚀 Features
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+- User registration and login
+- Browse nearby cafes and restaurants
+- Save favorite restaurants
+- Update user profile
+- Location-based restaurant discovery
+- Secure authentication system
+- Responsive web interface
 
-### `npm test`
+## 🛠️ Technologies Used
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+### Frontend
+- **TypeScript**
+- HTML
+- CSS
+- JavaScript
 
-### `npm run build`
+### Backend
+- **Java**
+- **Maven**
+- REST API
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+### Tools
+- Git & GitHub
+- Visual Studio Code
+- Maven Build Tool
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+## 📂 Project Structure
+aratkain/
+│
+├── frontend/ # Frontend source code (TypeScript)
+│
+├── backend/ # Java Maven backend application
+│
+├── README.md
+│
+└── docs/ # Project documentation (if applicable)
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+## ⚙️ Installation and Setup
 
-### `npm run eject`
+### 1️⃣ Clone the repository
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+```bash
+git clone https://github.com/yourusername/aratkain.git
+cd aratkain
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+## ⚙️ Installation and Setup
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
+### 1️⃣ Clone the repository
 
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
+```bash
+git clone https://github.com/yourusername/aratkain.git
+cd aratkain
+2️⃣ Setup the Backend (Java Maven)
 
-## Learn More
+Navigate to the backend folder:
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+cd backend
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+Build the project using Maven:
+
+mvn clean install
+
+Run the backend server:
+
+mvn spring-boot:run
+3️⃣ Setup the Frontend
+
+Navigate to the frontend folder:
+
+cd frontend
+
+Install dependencies:
+
+npm install
+
+Run the development server:
+
+npm run dev
+📸 System Modules
+
+Authentication Module
+
+Restaurant & Cafe Locator
+
+Favorites Management
+
+User Profile Management
+
+Location Services
+
+🎯 Purpose of the Project
+
+This project was developed as part of an academic requirement to demonstrate the use of modern web development technologies, combining a TypeScript frontend with a Java Maven backend to create a functional location-based restaurant discovery system.
+
+👨‍💻 Developers
+
+Developed by students of the Bachelor of Science in Information Technology (BSIT).
+
+📄 License
+
+This project is for educational purposes only.
+
+
+✅ This README is **good enough for a college project** and looks professional on GitHub.
+
+If you want, I can also help you add these to make it **even better for GitHub**:
+- **system architecture diagram**
+- **API documentation section**
+- **screenshots section**
+- **deployment instructions** (this makes projects look more professional).
