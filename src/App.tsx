@@ -2,20 +2,20 @@ import { useState, useEffect } from 'react';
 import { supabase } from './services/supabaseClient';
 import { AuthUser } from './services/authService';
 import { AppPage } from './types/auth';
+import LandingPage  from './pages/auth/LandingPage';
 import LoginPage    from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
-import HomePage from './pages/auth/HomePage';
+import HomePage     from './pages/auth/HomePage';
 
 export default function App() {
-  const [page,    setPage]    = useState<AppPage>('login');
+  const [page,    setPage]    = useState<AppPage>('landing');
   const [user,    setUser]    = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Check for existing Supabase session on mount
+  // Restore existing session on mount
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user) {
-        // Fetch profile from users table
         const { data: profile } = await supabase
           .from('users')
           .select('username, fullname')
@@ -41,7 +41,7 @@ export default function App() {
 
   const handleLogout = () => {
     setUser(null);
-    setPage('login');
+    setPage('landing');
   };
 
   if (loading) {
@@ -49,8 +49,8 @@ export default function App() {
       <div style={{
         height: '100vh', display: 'flex',
         alignItems: 'center', justifyContent: 'center',
-        background: '#F7F2EA', fontFamily: 'DM Sans, sans-serif',
-        color: '#8A7060', fontSize: '0.875rem',
+        background: '#2C1A0E', fontFamily: 'DM Sans, sans-serif',
+        color: '#C8A97E', fontSize: '0.875rem',
       }}>
         Loading…
       </div>
@@ -70,10 +70,20 @@ export default function App() {
     );
   }
 
+  if (page === 'login') {
+    return (
+      <LoginPage
+        onSwitch={(mode) => setPage(mode)}
+        onSuccess={handleSuccess}
+      />
+    );
+  }
+
+  // Default — landing page
   return (
-    <LoginPage
-      onSwitch={(mode) => setPage(mode)}
-      onSuccess={handleSuccess}
+    <LandingPage
+      onLogin={()    => setPage('login')}
+      onRegister={() => setPage('register')}
     />
   );
 }
