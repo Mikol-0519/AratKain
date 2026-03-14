@@ -2,10 +2,11 @@ import { useState, useEffect } from 'react';
 import { supabase } from './services/supabaseClient';
 import { AuthUser } from './services/authService';
 import { AppPage } from './types/auth';
-import LandingPage  from './pages/auth/LandingPage';
-import LoginPage    from './pages/auth/LoginPage';
-import RegisterPage from './pages/auth/RegisterPage';
-import HomePage     from './pages/auth/HomePage';
+import LandingPage        from './pages/auth/LandingPage';
+import LoginPage          from './pages/auth/LoginPage';
+import RegisterPage       from './pages/auth/RegisterPage';
+import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
+import HomePage           from './pages/auth/HomePage';
 
 export default function App() {
   const [page,    setPage]    = useState<AppPage>('landing');
@@ -44,6 +45,10 @@ export default function App() {
     setPage('landing');
   };
 
+  const handleUserUpdate = (updated: AuthUser) => {
+    setUser(updated);
+  };
+
   if (loading) {
     return (
       <div style={{
@@ -58,7 +63,13 @@ export default function App() {
   }
 
   if (page === 'dashboard' && user) {
-    return <HomePage onLogout={handleLogout} />;
+    return (
+      <HomePage
+        onLogout={handleLogout}
+        user={user}
+        onUserUpdate={handleUserUpdate}
+      />
+    );
   }
 
   if (page === 'register') {
@@ -75,11 +86,19 @@ export default function App() {
       <LoginPage
         onSwitch={(mode) => setPage(mode)}
         onSuccess={handleSuccess}
+        onForgotPassword={() => setPage('forgot-password' as AppPage)}
       />
     );
   }
 
-  // Default — landing page
+  if (page === ('forgot-password' as AppPage)) {
+    return (
+      <ForgotPasswordPage
+        onBack={() => setPage('login')}
+      />
+    );
+  }
+
   return (
     <LandingPage
       onLogin={()    => setPage('login')}

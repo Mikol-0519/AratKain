@@ -1,3 +1,4 @@
+import ProfilePage from './ProfilePage';
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "../../services/supabaseClient";
 
@@ -542,7 +543,9 @@ interface Spot {
 }
 
 interface HomePageProps {
-  onLogout: () => void;
+  onLogout:   () => void;
+  user:       { id: string; email: string; username: string; fullname: string; };
+  onUserUpdate: (u: { id: string; email: string; username: string; fullname: string; }) => void;
 }
 
 const SPOTS: Spot[] = [
@@ -619,7 +622,7 @@ const Icon = {
   ),
 };
 
-export default function HomePage({ onLogout }: HomePageProps) {
+export default function HomePage({ onLogout, user, onUserUpdate }: HomePageProps) {
   const mapRef      = useRef<HTMLDivElement>(null);
   const leafletMap  = useRef<any>(null);
   const markersRef  = useRef<any[]>([]);
@@ -630,6 +633,7 @@ export default function HomePage({ onLogout }: HomePageProps) {
   const [search,       setSearch]       = useState("");
   const [leafletLoaded, setLeafletLoaded] = useState(false);
   const [loggingOut,   setLoggingOut]   = useState(false);
+  const [showProfile,  setShowProfile]  = useState(false);
 
   // ── Logout handler ────────────────────────────────────────
   const handleLogout = async () => {
@@ -709,6 +713,17 @@ export default function HomePage({ onLogout }: HomePageProps) {
       ? SPOTS.length
       : SPOTS.filter((s) => s.type === activeFilter).length;
 
+  // Show profile page
+  if (showProfile) {
+    return (
+      <ProfilePage
+        user={user}
+        onBack={() => { setShowProfile(false); setActiveNav('food'); }}
+        onUpdated={(updated) => { onUserUpdate(updated); }}
+      />
+    );
+  }
+
   return (
     <>
       <style>{styles}</style>
@@ -732,7 +747,7 @@ export default function HomePage({ onLogout }: HomePageProps) {
               <button
                 key={id}
                 className={`nav-btn ${activeNav === id ? "active" : ""}`}
-                onClick={() => setActiveNav(id)}
+                onClick={() => { setActiveNav(id); if (id === "profile") setShowProfile(true); }}
                 title={id.charAt(0).toUpperCase() + id.slice(1)}
               >
                 {icon}

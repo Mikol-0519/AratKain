@@ -1,12 +1,16 @@
 // Add AppPage for routing
-export type AppPage = 'landing' | 'login' | 'register' | 'dashboard';
-
-// This file re-exports the shared types and helpers from utils/auth
-// so that other parts of the app can import them from a "types" location.
+export type AuthMode = 'login' | 'register';
+export type AppPage  = 'landing' | 'login' | 'register' | 'dashboard' | 'forgot-password';
+ 
+export interface FormErrors {
+  username?:        string;
+  fullname?:        string;
+  email?:           string;
+  password?:        string;
+  confirmPassword?: string;
+}
 
 export type {
-  AuthMode,
-  FormErrors,
   StrengthLevel,
   StrengthClass,
 } from "../utils/auth";
