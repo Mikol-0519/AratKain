@@ -565,57 +565,57 @@ const FILTERS: { id: FilterType; label: string }[] = [
 ];
 
 const Icon = {
-  food: () => (
+  Food: () => (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
       <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" /><line x1="7" y1="2" x2="7" y2="22" />
       <path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3zm0 0v7" />
     </svg>
   ),
-  bookmark: () => (
+  Bookmark: () => (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
       <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
     </svg>
   ),
-  user: () => (
+  User: () => (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
       <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
       <circle cx="12" cy="7" r="4" />
     </svg>
   ),
-  phone: () => (
+  Phone: () => (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
       <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
       <line x1="12" y1="18" x2="12.01" y2="18" />
     </svg>
   ),
-  logout: () => (
+  Logout: () => (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
       <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
       <polyline points="16 17 21 12 16 7" />
       <line x1="21" y1="12" x2="9" y2="12" />
     </svg>
   ),
-  search: () => (
+  Search: () => (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
       <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
     </svg>
   ),
-  star: () => (
+  Star: () => (
     <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
       <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
     </svg>
   ),
-  mapPin: () => (
+  MapPin: () => (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
       <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" />
     </svg>
   ),
-  close: () => (
+  Close: () => (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
       <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
     </svg>
   ),
-  navigate: () => (
+  Navigate: () => (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
       <polygon points="3 11 22 2 13 21 11 13 3 11" />
     </svg>
@@ -739,9 +739,9 @@ export default function HomePage({ onLogout, user, onUserUpdate }: HomePageProps
           <nav className="sidebar-nav">
             {(
               [
-                { id: "food"    as NavItem, icon: <Icon.food /> },
-                { id: "saved"   as NavItem, icon: <Icon.bookmark /> },
-                { id: "profile" as NavItem, icon: <Icon.user /> },
+                { id: "food"    as NavItem, icon: <Icon.Food /> },
+                { id: "saved"   as NavItem, icon: <Icon.Bookmark /> },
+                { id: "profile" as NavItem, icon: <Icon.User /> },
               ] as const
             ).map(({ id, icon }) => (
               <button
@@ -757,7 +757,7 @@ export default function HomePage({ onLogout, user, onUserUpdate }: HomePageProps
 
           <div className="sidebar-bottom">
             <button className="get-app-btn" title="Get App">
-              <Icon.phone />
+              <Icon.Phone />
               <span>App</span>
             </button>
 
@@ -768,7 +768,7 @@ export default function HomePage({ onLogout, user, onUserUpdate }: HomePageProps
               onClick={handleLogout}
               disabled={loggingOut}
             >
-              <Icon.logout />
+              <Icon.Logout />
               <span>{loggingOut ? "..." : "Out"}</span>
             </button>
           </div>
@@ -781,7 +781,7 @@ export default function HomePage({ onLogout, user, onUserUpdate }: HomePageProps
           {/* Search */}
           <div className="search-bar">
             <div className="search-input-wrap">
-              <Icon.search />
+              <Icon.Search />
               <input
                 className="search-input"
                 placeholder="Search for a place…"
@@ -809,7 +809,7 @@ export default function HomePage({ onLogout, user, onUserUpdate }: HomePageProps
           {selectedSpot && (
             <div className="info-card">
               <button className="close-card" onClick={() => setSelectedSpot(null)}>
-                <Icon.close />
+                <Icon.Close />
               </button>
               <div className="info-card-header">
                 <div>
@@ -825,20 +825,20 @@ export default function HomePage({ onLogout, user, onUserUpdate }: HomePageProps
               </div>
               <div className="info-card-meta">
                 <div className="meta-item">
-                  <Icon.star />
+                  <Icon.Star />
                   <span style={{ color: "#C8A97E" }}>{selectedSpot.rating}</span>
                 </div>
                 <div className="meta-item">
-                  <Icon.mapPin />
+                  <Icon.MapPin />
                   <span>{selectedSpot.distance} away</span>
                 </div>
               </div>
               <div className="info-card-actions">
                 <button className="card-btn primary">
-                  <Icon.navigate /> &nbsp;Directions
+                  <Icon.Navigate /> &nbsp;Directions
                 </button>
                 <button className="card-btn secondary">
-                  <Icon.bookmark /> &nbsp;Save
+                  <Icon.Bookmark /> &nbsp;Save
                 </button>
               </div>
             </div>

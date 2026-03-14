@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { supabase } from '../../services/supabaseClient';
 import { AuthUser } from '../../services/authService';
 
@@ -311,6 +311,21 @@ export default function ProfilePage({ user, onBack, onUpdated }: ProfilePageProp
   const [photoUrl,      setPhotoUrl]      = useState<string | null>(
     () => localStorage.getItem(`aratkain_avatar_${user.id}`) || null
   );
+
+  // Load photo_url from database on mount
+  useEffect(() => {
+    supabase
+      .from('users')
+      .select('photo_url')
+      .eq('user_id', user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.photo_url) {
+          setPhotoUrl(data.photo_url);
+          localStorage.setItem(`aratkain_avatar_${user.id}`, data.photo_url);
+        }
+      });
+  }, [user.id]);
   const [uploading,     setUploading]     = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [photoError,    setPhotoError]    = useState('');
@@ -375,10 +390,17 @@ export default function ProfilePage({ user, onBack, onUpdated }: ProfilePageProp
       if (uploadError) {
         // Supabase storage bucket may not exist — fall back to local base64
         const reader = new FileReader();
-        reader.onload = () => {
+        reader.onload = async () => {
           const base64 = reader.result as string;
           setPhotoUrl(base64);
           localStorage.setItem(`aratkain_avatar_${user.id}`, base64);
+
+          // Save base64 to users table as fallback
+          await supabase
+            .from('users')
+            .update({ photo_url: base64 })
+            .eq('user_id', user.id);
+
           setUploadProgress(100);
           setTimeout(() => { setUploading(false); setUploadProgress(0); }, 500);
         };
@@ -393,6 +415,13 @@ export default function ProfilePage({ user, onBack, onUpdated }: ProfilePageProp
       const url = data.publicUrl + '?t=' + Date.now();
       setPhotoUrl(url);
       localStorage.setItem(`aratkain_avatar_${user.id}`, url);
+
+      // Save URL to users table
+      await supabase
+        .from('users')
+        .update({ photo_url: data.publicUrl })
+        .eq('user_id', user.id);
+
       setUploadProgress(100);
       setTimeout(() => { setUploading(false); setUploadProgress(0); }, 500);
 
