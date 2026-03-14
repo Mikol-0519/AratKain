@@ -6,11 +6,12 @@ import LeftPanel from '../../components/auth/LeftPanel';
 import { loginUser, AuthError, AuthUser } from '../../services/authService';
 
 interface LoginPageProps {
-  onSwitch:  (mode: AuthMode) => void;
-  onSuccess: (user: AuthUser) => void;
+  onSwitch:         (mode: AuthMode) => void;
+  onSuccess:        (user: AuthUser) => void;
+  onForgotPassword: () => void;
 }
 
-export default function LoginPage({ onSwitch, onSuccess }: LoginPageProps) {
+export default function LoginPage({ onSwitch, onSuccess, onForgotPassword }: LoginPageProps) {
   const [email,       setEmail]       = useState('');
   const [password,    setPassword]    = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -108,7 +109,7 @@ export default function LoginPage({ onSwitch, onSuccess }: LoginPageProps) {
             onChange={handlePasswordChange}
             error={fieldErrors.password}
           >
-            <span className="forgot-link" onClick={() => alert('Password reset link sent!')}>
+            <span className="forgot-link" onClick={onForgotPassword}>
               Forgot Password?
             </span>
           </FormInput>
