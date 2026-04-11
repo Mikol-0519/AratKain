@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
-import { supabase } from './services/supabaseClient';
-import { AuthUser } from './services/authService';
-import { AppPage } from './types/auth';
-import LandingPage        from './pages/auth/LandingPage';
-import LoginPage          from './pages/auth/LoginPage';
-import RegisterPage       from './pages/auth/RegisterPage';
-import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
-import HomePage           from './pages/auth/HomePage';
+import { supabase } from './features/auth/services/supabaseClient';
+import { AuthUser } from './features/auth/services/authService';
+import { AppPage } from './features/auth/types/auth';
+import LandingPage        from './features/auth/pages/LandingPage';
+import LoginPage          from './features/auth/pages/LoginPage';
+import RegisterPage       from './features/auth/pages/RegisterPage';
+import ForgotPasswordPage from './features/auth/pages/ForgotPasswordPage';
+import HomePage           from './features/auth/pages/HomePage';
 
 export default function App() {
   const [page,    setPage]    = useState<AppPage>('landing');

@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import '../../styles/auth.css';
-import { AuthMode } from '../../types/auth';
-import FormInput from '../../components/auth/FormInput';
-import LeftPanel from '../../components/auth/LeftPanel';
-import { loginUser, AuthError, AuthUser } from '../../services/authService';
+import '../styles/auth.css';
+import { AuthMode } from '../types/auth';
+import FormInput from '../components/FormInput';
+import LeftPanel from '../components/LeftPanel';
+import { loginUser, AuthError, AuthUser } from '../services/authService';
 
 interface LoginPageProps {
   onSwitch:         (mode: AuthMode) => void;

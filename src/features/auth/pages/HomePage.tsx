@@ -1,6 +1,6 @@
 import ProfilePage from './ProfilePage';
 import { useEffect, useRef, useState } from "react";
-import { supabase } from "../../services/supabaseClient";
+import { supabase } from "../services/supabaseClient";
 
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500&display=swap');
