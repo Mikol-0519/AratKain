@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 *.iml
 .gradle
 /local.properties
@@ -13,3 +14,32 @@
 .externalNativeBuild
 .cxx
 local.properties
+=======
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# testing
+/coverage
+
+# production
+/build
+
+# misc
+.DS_Store
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+node_modules
+dist
+.env.local
+.env
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+>>>>>>> f8e2170d21f55c97a68880b40fd86fa6020b6d0d
