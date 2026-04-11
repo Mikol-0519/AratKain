@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import '../../styles/auth.css';
-import { AuthMode } from '../../types/auth';
-import FormInput from '../../components/auth/FormInput';
-import StrengthMeter from '../../components/auth/StrengthMeter';
-import LeftPanel from '../../components/auth/LeftPanel';
-import { registerUser, AuthError, AuthUser } from '../../services/authService';
-import { getPasswordStrength } from '../../utils/PasswordStrength';
+import '../styles/auth.css';
+import { AuthMode } from '../types/auth';
+import FormInput from '../components/FormInput';
+import StrengthMeter from '../components/StrengthMeter';
+import LeftPanel from '../components/LeftPanel';
+import { registerUser, AuthError, AuthUser } from '../services/authService';
+import { getPasswordStrength } from '../utils/PasswordStrength';
 interface RegisterPageProps {
   onSwitch:  (mode: AuthMode) => void;
   onSuccess: (user: AuthUser) => void;

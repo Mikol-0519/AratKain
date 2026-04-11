@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import '../../styles/auth.css';
-import LeftPanel from '../../components/auth/LeftPanel';
-import { supabase } from '../../services/supabaseClient';
+import '../styles/auth.css';
+import LeftPanel from '../components/LeftPanel';
+import { supabase } from '../services/supabaseClient';
 
 interface ForgotPasswordPageProps {
   onBack: () => void;

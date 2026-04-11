@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
-import { supabase } from '../../services/supabaseClient';
-import { AuthUser } from '../../services/authService';
+import { supabase } from '../services/supabaseClient';
+import { AuthUser } from '../services/authService';
 
 interface ProfilePageProps {
   user: AuthUser;

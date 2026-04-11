@@ -3,7 +3,7 @@ import {
   STRENGTH_LABELS,
   STRENGTH_COLORS,
   STRENGTH_BAR_CLASSES,
-} from '../../utils/PasswordStrength';
+} from '../utils/PasswordStrength';
 
 interface Props { score: StrengthLevel; }
 
