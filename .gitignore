@@ -1,27 +1,64 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# Android
+*.apk
+*.ap_
+*.aab
+*.dex
+*.class
+bin/
+gen/
+out/
+release/
+.gradle/
+build/
+local.properties
+proguard/
+*.log
+.navigation/
+captures/
+*.iml
+.externalNativeBuild
+.cxx/
+*.jks
+*.keystore
+google-services.json
+freeline.py
+freeline/
+freeline_project_description.json
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots
+fastlane/test_output
+fastlane/readme.md
+lint/intermediates/
+lint/generated/
+lint/outputs/
+lint/tmp/
+lint/reports/
+*.hprof
 
-# dependencies
-/node_modules
-/.pnp
-.pnp.js
-
-# testing
-/coverage
-
-# production
-/build
-
-# misc
-.DS_Store
+# Node / React
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
-node_modules
-dist
-.env.local
-.env
+dist/
+build/
+coverage/
+.pnp/
+.pnp.js
 
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+# IDE
+.idea/
+!.idea/codeStyles/
+!.idea/runConfigurations/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
