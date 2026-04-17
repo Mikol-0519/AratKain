@@ -5,6 +5,7 @@ interface LandingPageProps {
   onRegister: () => void;
 }
 
+// ── Styles (kept as single block for performance) ────────────────────────────
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=DM+Sans:wght@300;400;500;600&display=swap');
 
@@ -30,7 +31,6 @@ const styles = `
     position: relative;
   }
 
-  /* ── Animated grain overlay ── */
   .landing::before {
     content: '';
     position: fixed;
@@ -41,7 +41,6 @@ const styles = `
     opacity: 0.4;
   }
 
-  /* ── Navbar ── */
   .nav {
     position: fixed;
     top: 0; left: 0; right: 0;
@@ -109,7 +108,6 @@ const styles = `
     box-shadow: 0 6px 20px rgba(184,92,56,0.4);
   }
 
-  /* ── Hero ── */
   .hero {
     min-height: 100vh;
     display: flex;
@@ -119,7 +117,6 @@ const styles = `
     overflow: hidden;
   }
 
-  /* Radial glow behind text */
   .hero::after {
     content: '';
     position: absolute;
@@ -255,7 +252,6 @@ const styles = `
     color: var(--cream);
   }
 
-  /* ── Hero map mockup ── */
   .hero-visual {
     position: absolute;
     right: -40px; top: 50%;
@@ -403,7 +399,6 @@ const styles = `
     font-size: 0.55rem;
   }
 
-  /* ── Stats strip ── */
   .stats-strip {
     position: relative;
     z-index: 2;
@@ -445,7 +440,6 @@ const styles = `
     background: rgba(200,169,126,0.15);
   }
 
-  /* ── Features ── */
   .features {
     position: relative;
     z-index: 2;
@@ -534,7 +528,6 @@ const styles = `
     line-height: 1.6;
   }
 
-  /* ── CTA ── */
   .cta {
     position: relative;
     z-index: 2;
@@ -603,7 +596,6 @@ const styles = `
     color: var(--cream);
   }
 
-  /* ── Footer ── */
   .footer {
     position: relative;
     z-index: 2;
@@ -629,7 +621,6 @@ const styles = `
     letter-spacing: 0.04em;
   }
 
-  /* ── Responsive ── */
   @media (max-width: 900px) {
     .hero-visual { display: none; }
     .features-grid { grid-template-columns: 1fr; }
@@ -641,6 +632,7 @@ const styles = `
   }
 `;
 
+// ── Data ──────────────────────────────────────────────────────────────────────
 const PINS = [
   { type: 'cafe',       top: '28%', left: '22%', label: 'Burnham Brew',        delay: '0.6s' },
   { type: 'restaurant', top: '45%', left: '55%', label: 'Padre Faura Kitchen', delay: '0.8s' },
@@ -661,144 +653,152 @@ const FEATURES = [
   { title: 'Opening Hours',          desc: 'See live opening hours so you never show up to a closed door again.' },
 ];
 
-export default function LandingPage({ onLogin, onRegister }: LandingPageProps) {
+const STATS = [
+  { num: '200+', label: 'Places Listed' },
+  { num: '4.8★', label: 'Avg. Rating'   },
+  { num: '50+',  label: 'Cafes & Bars'  },
+  { num: '100%', label: 'Free to Use'   },
+];
+
+// ── Slice 1: Navbar ──────────────────────────────────────────────────────────
+const Navbar = ({ onLogin, onRegister }: LandingPageProps) => (
+  <nav className="nav">
+    <div className="nav-logo">Arat<span>Kain</span></div>
+    <div className="nav-links">
+      <button className="btn-ghost" onClick={onLogin}>Log In</button>
+      <button className="btn-fill"  onClick={onRegister}>Get Started</button>
+    </div>
+  </nav>
+);
+
+// ── Slice 2: Hero Section ────────────────────────────────────────────────────
+const HeroSection = ({ onLogin, onRegister }: LandingPageProps) => (
+  <section className="hero">
+    <div className="hero-content">
+      <div className="hero-tag">
+        <span className="hero-tag-dot" />
+        <span>Cebu's Cafe & Restaurant Tracker</span>
+      </div>
+      <h1 className="hero-title">
+        Discover your next<br />
+        <em>favorite</em> spot
+        <span className="accent-line">near you.</span>
+      </h1>
+      <p className="hero-sub">
+        AratKain helps you find the best cafes, restaurants, and bars
+        around you — with real reviews, live hours, and an interactive map.
+      </p>
+      <div className="hero-actions">
+        <button className="btn-hero-primary" onClick={onRegister}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+            <circle cx="12" cy="10" r="3"/>
+          </svg>
+          Start Exploring
+        </button>
+        <button className="btn-hero-secondary" onClick={onLogin}>
+          Already a member? Log in
+        </button>
+      </div>
+    </div>
+    <MapVisual />
+  </section>
+);
+
+// ── Slice 3: Map Visual ──────────────────────────────────────────────────────
+const MapVisual = () => (
+  <div className="hero-visual">
+    <div className="map-mockup">
+      <div className="map-mockup-grid" />
+      {ROADS_H.map((top, i) => <div key={i} className="map-road h" style={{ top }} />)}
+      {ROADS_V.map((left, i) => <div key={i} className="map-road v" style={{ left }} />)}
+      <div className="map-user-pin" style={{ top: '50%', left: '45%' }} />
+      {PINS.map((pin, i) => (
+        <div key={i} className="map-pin" style={{ top: pin.top, left: pin.left, animationDelay: pin.delay }}>
+          <div className={`map-pin-icon ${pin.type}`} />
+          <div className="map-pin-label">{pin.label}</div>
+        </div>
+      ))}
+      <div className="map-card" style={{ bottom: '14%', left: '8%' }}>
+        <div className="map-card-name">Burnham Brew ☕</div>
+        <div className="map-card-meta">
+          <span className="map-card-rating">★ 4.8</span>
+          <span>·</span>
+          <span>200m away</span>
+          <span className="map-card-badge">Open</span>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
+// ── Slice 4: Stats Strip ─────────────────────────────────────────────────────
+const StatsStrip = () => (
+  <div className="stats-strip">
+    {STATS.map((s, i) => (
+      <React.Fragment key={i}>
+        {i > 0 && <div className="stat-divider" />}
+        <div className="stat-item">
+          <div className="stat-num">{s.num}</div>
+          <div className="stat-label">{s.label}</div>
+        </div>
+      </React.Fragment>
+    ))}
+  </div>
+);
+
+// ── Slice 5: Features Section ────────────────────────────────────────────────
+const FeaturesSection = () => (
+  <section className="features">
+    <div className="section-label">Why AratKain</div>
+    <div className="section-title">
+      Everything you need to<br /><em>explore your city</em>
+    </div>
+    <div className="features-grid">
+      {FEATURES.map((f, i) => (
+        <div key={i} className="feature-card">
+          <div className="feature-title">{f.title}</div>
+          <div className="feature-desc">{f.desc}</div>
+        </div>
+      ))}
+    </div>
+  </section>
+);
+
+// ── Slice 6: CTA Section ─────────────────────────────────────────────────────
+const CTASection = ({ onLogin, onRegister }: LandingPageProps) => (
+  <section className="cta">
+    <h2 className="cta-title">
+      Ready to find your<br /><em>next great meal?</em>
+    </h2>
+    <p className="cta-sub">Join AratKain and start discovering today. It's completely free.</p>
+    <div className="cta-actions">
+      <button className="btn-cta primary"   onClick={onRegister}>Create Free Account</button>
+      <button className="btn-cta secondary" onClick={onLogin}>Log In</button>
+    </div>
+  </section>
+);
+
+// ── Slice 7: Footer ──────────────────────────────────────────────────────────
+const Footer = () => (
+  <footer className="footer">
+    <div className="footer-logo">Arat<span>Kain</span></div>
+    <div className="footer-copy">© 2025 AratKain · Discover · Explore · Savor</div>
+  </footer>
+);
+
+// ── Main Component ───────────────────────────────────────────────────────────
+export default function LandingPage(props: LandingPageProps) {
   return (
     <>
       <style>{styles}</style>
       <div className="landing">
-
-        {/* ── Navbar ── */}
-        <nav className="nav">
-          <div className="nav-logo">Arat<span>Kain</span></div>
-          <div className="nav-links">
-            <button className="btn-ghost" onClick={onLogin}>Log In</button>
-            <button className="btn-fill"  onClick={onRegister}>Get Started</button>
-          </div>
-        </nav>
-
-        {/* ── Hero ── */}
-        <section className="hero">
-          <div className="hero-content">
-            <div className="hero-tag">
-              <span className="hero-tag-dot" />
-              <span>Cebu's Cafe & Restaurant Tracker</span>
-            </div>
-
-            <h1 className="hero-title">
-              Discover your next<br />
-              <em>favorite</em> spot
-              <span className="accent-line">near you.</span>
-            </h1>
-
-            <p className="hero-sub">
-              AratKain helps you find the best cafes, restaurants, and bars
-              around you — with real reviews, live hours, and an interactive map.
-            </p>
-
-            <div className="hero-actions">
-              <button className="btn-hero-primary" onClick={onRegister}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-                  <circle cx="12" cy="10" r="3"/>
-                </svg>
-                Start Exploring
-              </button>
-              <button className="btn-hero-secondary" onClick={onLogin}>
-                Already a member? Log in
-              </button>
-            </div>
-          </div>
-
-          {/* Map visual */}
-          <div className="hero-visual">
-            <div className="map-mockup">
-              <div className="map-mockup-grid" />
-
-              {/* Roads */}
-              {ROADS_H.map((top, i) => (
-                <div key={i} className="map-road h" style={{ top }} />
-              ))}
-              {ROADS_V.map((left, i) => (
-                <div key={i} className="map-road v" style={{ left }} />
-              ))}
-
-              {/* User location */}
-              <div className="map-user-pin" style={{ top: '50%', left: '45%' }} />
-
-              {/* Place pins */}
-              {PINS.map((pin, i) => (
-                <div key={i} className="map-pin" style={{ top: pin.top, left: pin.left, animationDelay: pin.delay }}>
-                  <div className={`map-pin-icon ${pin.type}`} />
-                  <div className="map-pin-label">{pin.label}</div>
-                </div>
-              ))}
-
-              {/* Floating card */}
-              <div className="map-card" style={{ bottom: '14%', left: '8%' }}>
-                <div className="map-card-name">Burnham Brew ☕</div>
-                <div className="map-card-meta">
-                  <span className="map-card-rating">★ 4.8</span>
-                  <span>·</span>
-                  <span>200m away</span>
-                  <span className="map-card-badge">Open</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ── Stats ── */}
-        <div className="stats-strip">
-          {[
-            { num: '200+', label: 'Places Listed' },
-            { num: '4.8★', label: 'Avg. Rating'   },
-            { num: '50+',  label: 'Cafes & Bars'  },
-            { num: '100%', label: 'Free to Use'   },
-          ].map((s, i) => (
-            <>
-              {i > 0 && <div key={`d${i}`} className="stat-divider" />}
-              <div key={i} className="stat-item">
-                <div className="stat-num">{s.num}</div>
-                <div className="stat-label">{s.label}</div>
-              </div>
-            </>
-          ))}
-        </div>
-
-        {/* ── Features ── */}
-        <section className="features">
-          <div className="section-label">Why AratKain</div>
-          <div className="section-title">
-            Everything you need to<br /><em>explore your city</em>
-          </div>
-          <div className="features-grid">
-            {FEATURES.map((f, i) => (
-              <div key={i} className="feature-card">
-                <div className="feature-title">{f.title}</div>
-                <div className="feature-desc">{f.desc}</div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* ── CTA ── */}
-        <section className="cta">
-          <h2 className="cta-title">
-            Ready to find your<br /><em>next great meal?</em>
-          </h2>
-          <p className="cta-sub">Join AratKain and start discovering today. It's completely free.</p>
-          <div className="cta-actions">
-            <button className="btn-cta primary"   onClick={onRegister}>Create Free Account</button>
-            <button className="btn-cta secondary" onClick={onLogin}>Log In</button>
-          </div>
-        </section>
-
-        {/* ── Footer ── */}
-        <footer className="footer">
-          <div className="footer-logo">Arat<span>Kain</span></div>
-          <div className="footer-copy">© 2025 AratKain · Discover · Explore · Savor</div>
-        </footer>
-
+        <Navbar {...props} />
+        <HeroSection {...props} />
+        <StatsStrip />
+        <FeaturesSection />
+        <CTASection {...props} />
+        <Footer />
       </div>
     </>
   );
