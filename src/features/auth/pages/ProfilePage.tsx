@@ -32,7 +32,7 @@ const styles = `
 
   .profile-topbar {
     background: var(--espresso);
-    padding: 0 2rem;
+    padding: 0 2.5rem;
     height: 60px;
     display: flex;
     align-items: center;
@@ -66,12 +66,70 @@ const styles = `
     color: var(--cream);
   }
 
+  /* ── Two-column layout ── */
   .profile-body {
     flex: 1;
-    max-width: 560px;
-    width: 100%;
-    margin: 0 auto;
-    padding: 2.5rem 1.5rem;
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 0;
+    min-height: calc(100vh - 60px);
+  }
+
+  /* ── Left sidebar ── */
+  .profile-sidebar {
+    background: var(--espresso);
+    padding: 3rem 2rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .profile-sidebar::before {
+    content: '';
+    position: absolute;
+    top: -80px; right: -80px;
+    width: 240px; height: 240px;
+    border-radius: 50%;
+    background: rgba(200,169,126,0.08);
+    pointer-events: none;
+  }
+
+  .profile-sidebar::after {
+    content: '';
+    position: absolute;
+    bottom: -60px; left: -60px;
+    width: 200px; height: 200px;
+    border-radius: 50%;
+    background: rgba(200,169,126,0.06);
+    pointer-events: none;
+  }
+
+  /* ── Right content ── */
+  .profile-content {
+    padding: 2.5rem 3rem;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .profile-content-header {
+    margin-bottom: 0.5rem;
+  }
+
+  .profile-content-header h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--espresso);
+  }
+
+  .profile-content-header p {
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-top: 4px;
   }
 
   /* ── Avatar upload ── */
@@ -79,31 +137,33 @@ const styles = `
     display: flex;
     flex-direction: column;
     align-items: center;
-    margin-bottom: 2rem;
+    gap: 0.5rem;
+    position: relative;
+    z-index: 1;
   }
 
   .avatar-wrapper {
     position: relative;
-    margin-bottom: 0.75rem;
+    margin-bottom: 0.5rem;
     cursor: pointer;
   }
 
   .avatar-circle {
-    width: 90px;
-    height: 90px;
+    width: 110px;
+    height: 110px;
     border-radius: 50%;
-    background: var(--espresso);
+    background: rgba(200,169,126,0.15);
     display: flex;
     align-items: center;
     justify-content: center;
     font-family: 'Playfair Display', serif;
-    font-size: 2rem;
+    font-size: 2.4rem;
     font-weight: 700;
     color: var(--latte);
-    box-shadow: 0 4px 20px rgba(44,26,14,0.2);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
     overflow: hidden;
-    border: 3px solid var(--steam);
-    transition: opacity 0.2s;
+    border: 3px solid rgba(200,169,126,0.4);
+    transition: opacity 0.2s, transform 0.2s;
   }
 
   .avatar-circle img {
@@ -112,19 +172,19 @@ const styles = `
     object-fit: cover;
   }
 
-  .avatar-circle:hover { opacity: 0.85; }
+  .avatar-circle:hover { opacity: 0.85; transform: scale(1.02); }
 
   .avatar-upload-overlay {
     position: absolute;
-    bottom: 0; right: 0;
-    width: 28px; height: 28px;
+    bottom: 2px; right: 2px;
+    width: 30px; height: 30px;
     background: var(--accent);
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 2px solid white;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    border: 2px solid var(--espresso);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
     transition: transform 0.2s;
   }
 
@@ -132,38 +192,91 @@ const styles = `
   .avatar-upload-overlay svg { width: 13px; height: 13px; color: white; }
 
   .avatar-upload-hint {
-    font-size: 0.72rem;
-    color: var(--muted);
-    margin-top: 4px;
+    font-size: 0.7rem;
+    color: rgba(200,169,126,0.6);
+    text-align: center;
+    line-height: 1.4;
   }
 
   .avatar-name {
     font-family: 'Playfair Display', serif;
-    font-size: 1.25rem;
+    font-size: 1.3rem;
     font-weight: 700;
-    color: var(--espresso);
-    margin-top: 2px;
+    color: var(--cream);
+    text-align: center;
+    margin-top: 4px;
   }
 
   .avatar-email {
-    font-size: 0.8rem;
-    color: var(--muted);
-    margin-top: 2px;
+    font-size: 0.78rem;
+    color: var(--latte);
+    text-align: center;
+    opacity: 0.8;
+  }
+
+  /* ── Sidebar divider ── */
+  .sidebar-divider {
+    width: 100%;
+    height: 1px;
+    background: rgba(200,169,126,0.15);
+    margin: 1.5rem 0;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ── Sidebar stats ── */
+  .sidebar-meta {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    position: relative;
+    z-index: 1;
+  }
+
+  .sidebar-meta-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: rgba(200,169,126,0.07);
+    border-radius: 10px;
+    border: 1px solid rgba(200,169,126,0.12);
+  }
+
+  .sidebar-meta-item svg {
+    width: 15px; height: 15px;
+    color: var(--latte);
+    flex-shrink: 0;
+  }
+
+  .sidebar-meta-label {
+    font-size: 0.7rem;
+    color: rgba(200,169,126,0.55);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+  }
+
+  .sidebar-meta-value {
+    font-size: 0.82rem;
+    color: var(--cream);
+    margin-top: 1px;
   }
 
   /* ── Upload progress ── */
   .upload-progress {
     width: 90px;
-    height: 4px;
-    background: var(--steam);
+    height: 3px;
+    background: rgba(200,169,126,0.2);
     border-radius: 2px;
-    margin-top: 8px;
+    margin-top: 6px;
     overflow: hidden;
   }
 
   .upload-progress-bar {
     height: 100%;
-    background: var(--accent);
+    background: var(--latte);
     border-radius: 2px;
     transition: width 0.3s ease;
   }
@@ -173,20 +286,21 @@ const styles = `
     background: white;
     border-radius: 16px;
     border: 1px solid var(--steam);
-    padding: 1.5rem;
-    margin-bottom: 1.25rem;
+    padding: 1.75rem;
     box-shadow: 0 2px 12px rgba(44,26,14,0.06);
   }
 
   .card-title {
     font-family: 'Playfair Display', serif;
-    font-size: 1rem;
+    font-size: 1.05rem;
     font-weight: 700;
     color: var(--espresso);
-    margin-bottom: 1.25rem;
+    margin-bottom: 1.5rem;
     display: flex;
     align-items: center;
     gap: 8px;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--steam);
   }
   .card-title svg { width: 16px; height: 16px; color: var(--accent); }
 
@@ -268,8 +382,7 @@ const styles = `
   }
 
   .save-btn {
-    width: 100%;
-    padding: 11px;
+    padding: 11px 28px;
     border-radius: 10px;
     border: none;
     background: var(--espresso);
@@ -279,10 +392,9 @@ const styles = `
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s;
-    margin-top: 1rem;
-    display: flex;
+    margin-top: 1.25rem;
+    display: inline-flex;
     align-items: center;
-    justify-content: center;
     gap: 8px;
   }
   .save-btn:hover:not(:disabled) {
@@ -518,193 +630,239 @@ export default function ProfilePage({ user, onBack, onUpdated }: ProfilePageProp
 
         <div className="profile-body">
 
-          {/* ── Avatar ── */}
-          <div className="avatar-section">
-            <div className="avatar-wrapper" onClick={handlePhotoClick} title="Click to change photo">
-              <div className="avatar-circle">
-                {photoUrl
-                  ? <img src={photoUrl} alt="Profile" />
-                  : initials
-                }
+          {/* ── Left Sidebar ── */}
+          <div className="profile-sidebar">
+            <div className="avatar-section">
+              <div className="avatar-wrapper" onClick={handlePhotoClick} title="Click to change photo">
+                <div className="avatar-circle">
+                  {photoUrl
+                    ? <img src={photoUrl} alt="Profile" />
+                    : initials
+                  }
+                </div>
+                <div className="avatar-upload-overlay">
+                  {uploading
+                    ? <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ animation: 'spin 0.7s linear infinite' }}>
+                        <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+                      </svg>
+                    : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                        <circle cx="12" cy="13" r="4"/>
+                      </svg>
+                  }
+                </div>
               </div>
-              <div className="avatar-upload-overlay">
-                {uploading
-                  ? <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ animation: 'spin 0.7s linear infinite' }}>
-                      <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
-                    </svg>
-                  : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-                      <circle cx="12" cy="13" r="4"/>
-                    </svg>
-                }
-              </div>
-            </div>
 
-            {/* Hidden file input */}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              style={{ display: 'none' }}
-              onChange={handleFileChange}
-            />
-
-            {uploading && (
-              <div className="upload-progress">
-                <div className="upload-progress-bar" style={{ width: `${uploadProgress}%` }} />
-              </div>
-            )}
-
-            {photoError && (
-              <div style={{ fontSize: '0.72rem', color: 'var(--accent)', marginTop: 6 }}>
-                {photoError}
-              </div>
-            )}
-
-            <div className="avatar-upload-hint">
-              {uploading ? 'Uploading…' : 'Click photo to change · Max 2MB'}
-            </div>
-
-            <div className="avatar-name">{fullname || username}</div>
-            <div className="avatar-email">{user.email}</div>
-          </div>
-
-          {/* ── Profile Info Card ── */}
-          <div className="profile-card">
-            <div className="card-title">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                <circle cx="12" cy="7" r="4"/>
-              </svg>
-              Personal Information
-            </div>
-
-            {infoSuccess && (
-              <div className="success-banner">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <polyline points="20 6 9 17 4 12"/>
-                </svg>
-                {infoSuccess}
-              </div>
-            )}
-            {infoError && (
-              <div className="error-banner">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-                </svg>
-                {infoError}
-              </div>
-            )}
-
-            <div className="field-row">
-              <div className="field-group">
-                <label className="field-label">Username</label>
-                <input
-                  className={`field-input ${infoFieldErrors.username ? 'error' : ''}`}
-                  value={username}
-                  onChange={e => { setUsername(e.target.value); setInfoFieldErrors(p => ({...p, username: ''})); }}
-                  placeholder="username"
-                />
-                {infoFieldErrors.username && <span className="field-error">{infoFieldErrors.username}</span>}
-              </div>
-              <div className="field-group">
-                <label className="field-label">Full Name</label>
-                <input
-                  className={`field-input ${infoFieldErrors.fullname ? 'error' : ''}`}
-                  value={fullname}
-                  onChange={e => { setFullname(e.target.value); setInfoFieldErrors(p => ({...p, fullname: ''})); }}
-                  placeholder="Your full name"
-                />
-                {infoFieldErrors.fullname && <span className="field-error">{infoFieldErrors.fullname}</span>}
-              </div>
-            </div>
-
-            <div className="field-group">
-              <label className="field-label">Email</label>
+              {/* Hidden file input */}
               <input
-                className="field-input"
-                value={user.email}
-                disabled
-                style={{ opacity: 0.5, cursor: 'not-allowed' }}
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                onChange={handleFileChange}
               />
-              <span style={{ fontSize: '0.7rem', color: 'var(--muted)' }}>Email cannot be changed</span>
-            </div>
 
-            <button className="save-btn" onClick={handleSaveInfo} disabled={infoLoading}>
-              {infoLoading ? <span className="spinner" /> : (
-                <>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-                    <polyline points="17 21 17 13 7 13 7 21"/>
-                  </svg>
-                  Save Changes
-                </>
+              {uploading && (
+                <div className="upload-progress">
+                  <div className="upload-progress-bar" style={{ width: `${uploadProgress}%` }} />
+                </div>
               )}
-            </button>
-          </div>
 
-          {/* ── Change Password Card ── */}
-          <div className="profile-card">
-            <div className="card-title">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-              </svg>
-              Change Password
-            </div>
-
-            {pwSuccess && (
-              <div className="success-banner">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <polyline points="20 6 9 17 4 12"/>
-                </svg>
-                {pwSuccess}
-              </div>
-            )}
-            {pwError && (
-              <div className="error-banner">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-                </svg>
-                {pwError}
-              </div>
-            )}
-
-            <div className="field-group">
-              <label className="field-label">New Password</label>
-              <input
-                className={`field-input ${pwFieldErrors.newPassword ? 'error' : ''}`}
-                type="password" placeholder="••••••••"
-                value={newPassword}
-                onChange={e => { setNewPassword(e.target.value); setPwFieldErrors(p => ({...p, newPassword: ''})); }}
-              />
-              {pwFieldErrors.newPassword && <span className="field-error">{pwFieldErrors.newPassword}</span>}
-            </div>
-
-            <div className="field-group">
-              <label className="field-label">Confirm New Password</label>
-              <input
-                className={`field-input ${pwFieldErrors.confirmPassword ? 'error' : ''}`}
-                type="password" placeholder="••••••••"
-                value={confirmPassword}
-                onChange={e => { setConfirmPassword(e.target.value); setPwFieldErrors(p => ({...p, confirmPassword: ''})); }}
-              />
-              {pwFieldErrors.confirmPassword && <span className="field-error">{pwFieldErrors.confirmPassword}</span>}
-            </div>
-
-            <button className="save-btn" onClick={handleSavePassword} disabled={pwLoading}>
-              {pwLoading ? <span className="spinner" /> : (
-                <>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                    <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-                  </svg>
-                  Update Password
-                </>
+              {photoError && (
+                <div style={{ fontSize: '0.7rem', color: 'var(--latte)', marginTop: 4, textAlign: 'center' }}>
+                  {photoError}
+                </div>
               )}
-            </button>
+
+              <div className="avatar-upload-hint">
+                {uploading ? 'Uploading…' : 'Click photo to change · Max 2MB'}
+              </div>
+
+              <div className="avatar-name">{fullname || username}</div>
+              <div className="avatar-email">{user.email}</div>
+            </div>
+
+            <div className="sidebar-divider" />
+
+            <div className="sidebar-meta">
+              <div className="sidebar-meta-item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                  <circle cx="12" cy="7" r="4"/>
+                </svg>
+                <div>
+                  <div className="sidebar-meta-label">Username</div>
+                  <div className="sidebar-meta-value">@{username}</div>
+                </div>
+              </div>
+              <div className="sidebar-meta-item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                  <polyline points="22,6 12,13 2,6"/>
+                </svg>
+                <div>
+                  <div className="sidebar-meta-label">Email</div>
+                  <div className="sidebar-meta-value" style={{ wordBreak: 'break-all', fontSize: '0.78rem' }}>{user.email}</div>
+                </div>
+              </div>
+              <div className="sidebar-meta-item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                </svg>
+                <div>
+                  <div className="sidebar-meta-label">Password</div>
+                  <div className="sidebar-meta-value">••••••••</div>
+                </div>
+              </div>
+            </div>
           </div>
 
+          {/* ── Right Content ── */}
+          <div className="profile-content">
+            <div className="profile-content-header">
+              <h2>Account Settings</h2>
+              <p>Manage your personal information and security preferences</p>
+            </div>
+
+            {/* ── Profile Info Card ── */}
+            <div className="profile-card">
+              <div className="card-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                  <circle cx="12" cy="7" r="4"/>
+                </svg>
+                Personal Information
+              </div>
+
+              {infoSuccess && (
+                <div className="success-banner">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                  {infoSuccess}
+                </div>
+              )}
+              {infoError && (
+                <div className="error-banner">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                  </svg>
+                  {infoError}
+                </div>
+              )}
+
+              <div className="field-row">
+                <div className="field-group">
+                  <label className="field-label">Username</label>
+                  <input
+                    className={`field-input ${infoFieldErrors.username ? 'error' : ''}`}
+                    value={username}
+                    onChange={e => { setUsername(e.target.value); setInfoFieldErrors(p => ({...p, username: ''})); }}
+                    placeholder="username"
+                  />
+                  {infoFieldErrors.username && <span className="field-error">{infoFieldErrors.username}</span>}
+                </div>
+                <div className="field-group">
+                  <label className="field-label">Full Name</label>
+                  <input
+                    className={`field-input ${infoFieldErrors.fullname ? 'error' : ''}`}
+                    value={fullname}
+                    onChange={e => { setFullname(e.target.value); setInfoFieldErrors(p => ({...p, fullname: ''})); }}
+                    placeholder="Your full name"
+                  />
+                  {infoFieldErrors.fullname && <span className="field-error">{infoFieldErrors.fullname}</span>}
+                </div>
+              </div>
+
+              <div className="field-group">
+                <label className="field-label">Email</label>
+                <input
+                  className="field-input"
+                  value={user.email}
+                  disabled
+                  style={{ opacity: 0.5, cursor: 'not-allowed' }}
+                />
+                <span style={{ fontSize: '0.7rem', color: 'var(--muted)' }}>Email cannot be changed</span>
+              </div>
+
+              <button className="save-btn" onClick={handleSaveInfo} disabled={infoLoading}>
+                {infoLoading ? <span className="spinner" /> : (
+                  <>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                      <polyline points="17 21 17 13 7 13 7 21"/>
+                    </svg>
+                    Save Changes
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* ── Change Password Card ── */}
+            <div className="profile-card">
+              <div className="card-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                </svg>
+                Change Password
+              </div>
+
+              {pwSuccess && (
+                <div className="success-banner">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                  {pwSuccess}
+                </div>
+              )}
+              {pwError && (
+                <div className="error-banner">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                  </svg>
+                  {pwError}
+                </div>
+              )}
+
+              <div className="field-row">
+                <div className="field-group">
+                  <label className="field-label">New Password</label>
+                  <input
+                    className={`field-input ${pwFieldErrors.newPassword ? 'error' : ''}`}
+                    type="password" placeholder="••••••••"
+                    value={newPassword}
+                    onChange={e => { setNewPassword(e.target.value); setPwFieldErrors(p => ({...p, newPassword: ''})); }}
+                  />
+                  {pwFieldErrors.newPassword && <span className="field-error">{pwFieldErrors.newPassword}</span>}
+                </div>
+                <div className="field-group">
+                  <label className="field-label">Confirm New Password</label>
+                  <input
+                    className={`field-input ${pwFieldErrors.confirmPassword ? 'error' : ''}`}
+                    type="password" placeholder="••••••••"
+                    value={confirmPassword}
+                    onChange={e => { setConfirmPassword(e.target.value); setPwFieldErrors(p => ({...p, confirmPassword: ''})); }}
+                  />
+                  {pwFieldErrors.confirmPassword && <span className="field-error">{pwFieldErrors.confirmPassword}</span>}
+                </div>
+              </div>
+
+              <button className="save-btn" onClick={handleSavePassword} disabled={pwLoading}>
+                {pwLoading ? <span className="spinner" /> : (
+                  <>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                    </svg>
+                    Update Password
+                  </>
+                )}
+              </button>
+            </div>
+
+          </div>
         </div>
       </div>
     </>
