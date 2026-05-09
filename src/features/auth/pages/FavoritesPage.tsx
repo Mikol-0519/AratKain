@@ -27,7 +27,7 @@ interface FavoritesPageProps {
   onProfile:         () => void;
 }
 
-const BASE_URL = "https://aratkain-backend.onrender.com";
+const BASE_URL = "";
 
 const TYPE_EMOJI: Record<string, string> = {
   cafe: "☕", restaurant: "🍽️", bar: "🍸",
