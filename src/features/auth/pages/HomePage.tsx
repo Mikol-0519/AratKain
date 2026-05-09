@@ -28,7 +28,7 @@ interface HomePageProps {
   onUserUpdate: (u: { id: string; email: string; username: string; fullname: string }) => void;
 }
 
-const BASE_URL = "https://aratkain-backend.onrender.com";
+const BASE_URL = "";
 
 const FILTERS: { id: FilterType; label: string; emoji: string }[] = [
   { id: "all",        label: "All",         emoji: "🗺️" },
