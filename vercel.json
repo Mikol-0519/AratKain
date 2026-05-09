@@ -1,8 +1,8 @@
-﻿{
+{
   "rewrites": [
     {
-      "source": "/api/(.*)",
-      "destination": "https://aratkain-backend.onrender.com/api/$1"
+      "source": "/api/:path*",
+      "destination": "https://aratkain-backend.onrender.com/api/:path*"
     }
   ]
 }
