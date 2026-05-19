@@ -171,7 +171,7 @@ const styles = `
     border: 1.5px solid transparent;
     transition: all 0.2s ease; 
     box-shadow: 0 2px 8px rgba(30,18,8,0.06);
-    height: 130px; /* FIXED HEIGHT */
+    height: 130px;
     display: flex; 
     flex-direction: column;
     justify-content: space-between;
@@ -857,7 +857,6 @@ export default function HomePage({ onLogout, user, onUserUpdate }: HomePageProps
     setShowProfile(false);
     setShowFavorites(false);
     setActiveNav("food");
-    // invalidateSize is handled by the useEffect watching showProfile/showFavorites
   };
 
   return (
@@ -1067,8 +1066,16 @@ export default function HomePage({ onLogout, user, onUserUpdate }: HomePageProps
                   </div>
                 )}
                 <div className="info-card-actions">
-                  <button className="card-btn primary"
-                    onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${selectedSpot.lat},${selectedSpot.lng}`,"_blank")}>
+                  {/* ── FIX: use name + address query instead of raw coordinates ── */}
+                  <button
+                    className="card-btn primary"
+                    onClick={() => {
+                      const query = encodeURIComponent(
+                        `${selectedSpot.name}${selectedSpot.address ? ", " + selectedSpot.address : ""}`
+                      );
+                      window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, "_blank");
+                    }}
+                  >
                     <Icon.Navigate/> Directions
                   </button>
                   <button
@@ -1116,7 +1123,6 @@ export default function HomePage({ onLogout, user, onUserUpdate }: HomePageProps
             onViewOnMap={(spot) => {
               closeOverlay();
               setSelectedSpot(spot);
-              // invalidateSize fires via useEffect, then pan
               setTimeout(() => leafletMap.current?.panTo([spot.lat, spot.lng]), 120);
             }}
             onToggleFavorite={toggleFavorite}
