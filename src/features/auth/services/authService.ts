@@ -47,14 +47,19 @@ export async function registerUser(
     throw err;
   }
 
-  // Check if username already exists in our users table
-  const { data: existingUser } = await supabase
-    .from('users')
-    .select('username')
-    .eq('username', username)
-    .maybeSingle();
+  // Check if username already exists using a hardened DB RPC — the users
+  // table itself is no longer readable without a session (RLS hardening).
+  const { data: usernameTaken, error: rpcError } = await supabase.rpc(
+    'username_taken',
+    { username_to_check: username },
+  );
 
-  if (existingUser) {
+  if (rpcError) {
+    const err: AuthError = { type: 'SERVER_ERROR', message: 'Could not verify the username. Please try again.' };
+    throw err;
+  }
+
+  if (usernameTaken) {
     const err: AuthError = {
       type: 'USERNAME_TAKEN',
       message: `Username "${username}" is already taken. Please choose another.`,
