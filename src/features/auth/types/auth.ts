@@ -1,6 +1,6 @@
 // Add AppPage for routing
 export type AuthMode = 'login' | 'register';
-export type AppPage  = 'landing' | 'login' | 'register' | 'dashboard' | 'forgot-password';
+export type AppPage  = 'landing' | 'login' | 'register' | 'dashboard' | 'forgot-password' | 'reset-password';
  
 export interface FormErrors {
   username?:        string;

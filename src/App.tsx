@@ -1,20 +1,27 @@
 import { useState, useEffect } from 'react';
-import { supabase } from './features/auth/services/supabaseClient';
+import { supabase, isRecoveryCallback } from './features/auth/services/supabaseClient';
 import { AuthUser } from './features/auth/services/authService';
 import { AppPage } from './features/auth/types/auth';
 import LandingPage        from './features/auth/pages/LandingPage';
 import LoginPage          from './features/auth/pages/LoginPage';
 import RegisterPage       from './features/auth/pages/RegisterPage';
 import ForgotPasswordPage from './features/auth/pages/ForgotPasswordPage';
+import ResetPasswordPage  from './features/auth/pages/ResetPasswordPage';
 import HomePage           from './features/auth/pages/HomePage';
 
 export default function App() {
-  const [page,    setPage]    = useState<AppPage>('landing');
+  const [page,    setPage]    = useState<AppPage>(isRecoveryCallback ? 'reset-password' : 'landing');
   const [user,    setUser]    = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Restore existing session on mount
   useEffect(() => {
+    if (isRecoveryCallback) {
+      // Recovery link: the saved recovery session exists, but the user must
+      // stay on the reset-password form - don't redirect to the dashboard.
+      setLoading(false);
+      return;
+    }
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user) {
         const { data: profile } = await supabase
@@ -86,15 +93,23 @@ export default function App() {
       <LoginPage
         onSwitch={(mode) => setPage(mode)}
         onSuccess={handleSuccess}
-        onForgotPassword={() => setPage('forgot-password' as AppPage)}
+        onForgotPassword={() => setPage('forgot-password')}
       />
     );
   }
 
-  if (page === ('forgot-password' as AppPage)) {
+  if (page === 'forgot-password') {
     return (
       <ForgotPasswordPage
         onBack={() => setPage('login')}
+      />
+    );
+  }
+
+  if (page === 'reset-password') {
+    return (
+      <ResetPasswordPage
+        onDone={() => setPage('login')}
       />
     );
   }
