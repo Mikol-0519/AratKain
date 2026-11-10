@@ -14,6 +14,14 @@ export default function App() {
   const [user,    setUser]    = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Wake the Render backend on page load: its free tier sleeps after ~15 min
+  // of idle, which would otherwise make the first /api request wait 1-2 min.
+  // Fire-and-forget: even from a non-allow-listed origin the request still
+  // reaches (and wakes) the server.
+  useEffect(() => {
+    fetch('https://aratkain-backend.onrender.com/api/auth/health').catch(() => {});
+  }, []);
+
   // Restore existing session on mount
   useEffect(() => {
     if (isRecoveryCallback) {
