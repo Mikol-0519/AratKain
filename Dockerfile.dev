@@ -1,0 +1,20 @@
+# Development image for the React (CRA) web app.
+# Used only by docker-compose.yml at the workspace root - Vercel builds the
+# app its own way and never touches this file.
+FROM node:20-alpine
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci
+
+COPY . .
+
+# Hot-reload over Windows/OneDrive bind mounts needs polling
+ENV CHOKIDAR_USEPOLLING=true
+# CRA dev server: accept connections from outside the container, don't spawn a browser
+ENV HOST=0.0.0.0
+ENV PORT=3000
+ENV BROWSER=none
+
+EXPOSE 3000
+CMD ["npm", "start"]
