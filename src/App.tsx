@@ -24,13 +24,28 @@ export default function App() {
       ? { status: 'signed-out', route: 'reset-password' }
       : { status: 'restoring' },
   );
+  const [backendReady, setBackendReady] = useState(false);
 
-  // Wake the Render backend on page load: its free tier sleeps after ~15 min
-  // of idle, which would otherwise make the first /api request wait 1-2 min.
-  // Fire-and-forget: even from a non-allow-listed origin the request still
-  // reaches (and wakes) the server.
+  /**
+   * The backend is on Render's free tier: after ~15 minutes idle it sleeps,
+   * and the first request can take up to a minute to wake it. Ping the health
+   * endpoint (through the same /api proxy the app uses) until it answers so
+   * the dashboard does not report a cold start as "backend down".
+   */
   useEffect(() => {
-    fetch('https://aratkain-backend.onrender.com/api/auth/health').catch(() => {});
+    let cancelled = false;
+    const wake = async () => {
+      for (let attempt = 0; attempt < 60; attempt++) {
+        try {
+          const res = await fetch('/api/auth/health');
+          if (res.ok) break;
+        } catch { /* still waking up */ }
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+      if (!cancelled) setBackendReady(true);
+    };
+    wake();
+    return () => { cancelled = true; };
   }, []);
 
   // A recovery link that arrives while the app is already open is a
@@ -102,7 +117,7 @@ export default function App() {
     setState(prev => (prev.status === 'signed-in' ? prev : { status: 'signed-out', route }));
   }, []);
 
-  if (state.status === 'restoring') {
+  if (state.status === 'restoring' || (state.status === 'signed-in' && !backendReady)) {
     return (
       <div style={{
         height: '100vh', display: 'flex',
@@ -110,7 +125,7 @@ export default function App() {
         background: '#2C1A0E', fontFamily: 'DM Sans, sans-serif',
         color: '#C8A97E', fontSize: '0.875rem',
       }}>
-        Loading…
+        {state.status === 'restoring' ? 'Loading…' : 'Starting the backend…'}
       </div>
     );
   }

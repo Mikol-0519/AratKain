@@ -1,7 +1,8 @@
 /**
  * CRA development-server proxy: forwards /api/* to the Spring backend.
  *
- *   - `npm start` locally      → target http://localhost:8080 (default)
+ *   - `npm start` locally      → hosted backend (default; no local setup needed)
+ *   - local backend            → set BACKEND_PROXY=http://localhost:8080
  *   - `docker compose up` web  → target http://backend:8080 (BACKEND_PROXY env
  *                                set by docker-compose.yml at the workspace root)
  *
@@ -15,7 +16,7 @@ module.exports = function (app) {
   app.use(
     '/api',
     createProxyMiddleware({
-      target: process.env.BACKEND_PROXY || 'http://localhost:8080',
+      target: process.env.BACKEND_PROXY || 'https://aratkain-backend.onrender.com',
       changeOrigin: true,
     })
   );

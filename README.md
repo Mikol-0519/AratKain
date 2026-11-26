@@ -67,24 +67,27 @@ Prerequisites: Node.js with npm, Java 17+, and Maven 3.8+ for the backend.
 
 3. Run `../AratKain-Backend/sql/migrations/003_establishments_osm_id.sql` in
    the Supabase SQL Editor. Search imports real OpenStreetMap places and needs
-   that column to avoid importing the same place twice.
+   that column to avoid importing the same place twice. (The hosted backend
+   needs this too; it is a one-time database change.)
 
-4. Start the backend from `../AratKain-Backend/` so the catalogue, search and
-   nearby endpoints are available on port 8080:
-
-   ```bash
-   mvn spring-boot:run
-   ```
-
-5. Run the web app:
+4. Run the web app:
 
    ```bash
    npm start
    ```
 
-   The dev server proxies `/api` requests to `http://localhost:8080` through
-   `src/setupProxy.js`. See [`../LOCALDEV.md`](../LOCALDEV.md) for the shared
-   local-development setup, including the Docker Compose option.
+   The dev server proxies `/api` requests to the hosted backend
+   (`https://aratkain-backend.onrender.com`) by default, so no local backend is
+   needed. The app waits for it to wake from Render's sleep before loading
+   places. To use a local backend instead:
+
+   ```bash
+   $env:BACKEND_PROXY='http://localhost:8080'; npm start
+   ```
+
+   `../dev-start.ps1` starts both local services with that variable set.
+   See [`../LOCALDEV.md`](../LOCALDEV.md) for the full routing table and the
+   Docker Compose option.
 
 ## Checks
 
