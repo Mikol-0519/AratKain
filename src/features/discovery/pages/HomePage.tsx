@@ -25,6 +25,7 @@ import {
   emptyFavoritesState,
   isFavoritePending,
 } from '../machines/discovery';
+import { locateUser, LocationError } from '../domain/geolocation';
 
 // ── Types ─────────────────────────────────────────────────────
 interface HomePageProps {
@@ -468,6 +469,12 @@ const styles = `
     display: flex; align-items: center; gap: 7px;
   }
   .error-toast svg { width: 13px; height: 13px; flex-shrink: 0; }
+  .toast-retry {
+    margin-left: 6px; padding: 3px 8px; border-radius: 6px;
+    border: 1px solid #C0392B; background: transparent;
+    color: #C0392B; font: inherit; font-weight: 600; cursor: pointer;
+  }
+  .toast-retry:hover { background: #F5C6BC; }
 
   /* ── Skeleton - FIXED CONSISTENT SIZE ── */
   .skeleton-card {
@@ -799,49 +806,40 @@ export default function HomePage({ onLogout, user, onUserUpdate }: HomePageProps
     await loadSpots(() => getJson(url), "Filter failed.");
   };
 
-  const handleLocate = () => {
-    if (!navigator.geolocation) {
-      setLocationState({ status: "unavailable", message: "This browser does not support location." });
-      return;
-    }
-
+  const handleLocate = async () => {
     setLocationState({ status: "locating" });
 
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const lat = pos.coords.latitude, lng = pos.coords.longitude;
-        setLocationState({ status: "located", lat, lng });
+    try {
+      const fix = await locateUser();
+      setLocationState({ status: "located", lat: fix.lat, lng: fix.lng });
 
-        if (leafletMap.current) {
-          const L = (window as any).L;
-          leafletMap.current.setView([lat, lng], 14);
-          if (userMarker.current) userMarker.current.remove();
-          const uIcon = L.divIcon({
-            html: `<div style="width:16px;height:16px;border-radius:50%;background:#4A90E2;border:3px solid white;box-shadow:0 0 0 6px rgba(74,144,226,0.25)"></div>`,
-            className: "", iconSize: [16,16], iconAnchor: [8,8],
-          });
-          userMarker.current = L.marker([lat,lng],{icon:uIcon}).addTo(leafletMap.current)
-            .bindTooltip("You are here",{className:"marker-tooltip",direction:"top",offset:[0,-12]});
-        }
+      if (leafletMap.current) {
+        const L = (window as any).L;
+        leafletMap.current.setView([fix.lat, fix.lng], 14);
+        if (userMarker.current) userMarker.current.remove();
+        const uIcon = L.divIcon({
+          html: `<div style="width:16px;height:16px;border-radius:50%;background:#4A90E2;border:3px solid white;box-shadow:0 0 0 6px rgba(74,144,226,0.25)"></div>`,
+          className: "", iconSize: [16,16], iconAnchor: [8,8],
+        });
+        userMarker.current = L.marker([fix.lat,fix.lng],{icon:uIcon})
+          .addTo(leafletMap.current)
+          .bindTooltip(fix.approximate ? "Approximate location" : "You are here",
+            {className:"marker-tooltip",direction:"top",offset:[0,-12]});
+      }
 
-        await loadSpots(
-          () => postNearby(lat, lng, filter === "all" ? undefined : filter),
-          "Could not find nearby places.",
-        );
-      },
-      (err) => {
-        // Without a timeout the browser could leave the button on "Locating…"
-        // forever, so every failure path is now classified explicitly.
-        if (err.code === err.PERMISSION_DENIED) {
-          setLocationState({ status: "unavailable", message: "Location access was denied. Allow it to see places near you." });
-        } else if (err.code === err.TIMEOUT) {
-          setLocationState({ status: "timeout", message: "Timed out while finding your location. Please try again." });
-        } else {
-          setLocationState({ status: "unavailable", message: "Could not determine your location." });
-        }
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
-    );
+      await loadSpots(
+        () => postNearby(fix.lat, fix.lng, filter === "all" ? undefined : filter),
+        "Could not find nearby places.",
+      );
+    } catch (error) {
+      const reason = error instanceof LocationError ? error.reason : "unknown";
+      setLocationState({
+        status: reason === "timeout" ? "timeout" : "unavailable",
+        message: error instanceof LocationError
+          ? error.message
+          : "Could not determine your location.",
+      });
+    }
   };
 
   // ── Nav helper ─────────────────────────────────────────────
@@ -957,7 +955,14 @@ export default function HomePage({ onLogout, user, onUserUpdate }: HomePageProps
 
           {toastMessage && (
             <div className="error-toast" onClick={dismissToast}>
-              <Icon.Alert/> <span>{toastMessage}</span> <Icon.Close/>
+              <Icon.Alert/> <span>{toastMessage}</span>
+              {(locationState.status === "timeout" || locationState.status === "unavailable") && (
+                <button className="toast-retry"
+                  onClick={e => { e.stopPropagation(); handleLocate(); }}>
+                  Retry
+                </button>
+              )}
+              <Icon.Close/>
             </div>
           )}
 

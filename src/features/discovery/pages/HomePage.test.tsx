@@ -141,3 +141,32 @@ it('searches through the backend search endpoint', async () => {
     expect(searched).toBe(true);
   });
 });
+
+it('loads nearby places from the browser location when Near Me is clicked', async () => {
+  (global.fetch as jest.Mock).mockResolvedValue({
+    ok: true,
+    json: async () => [establishment()],
+  });
+  localStorage.clear();
+  Object.defineProperty(navigator, 'geolocation', {
+    configurable: true,
+    value: {
+      getCurrentPosition: jest.fn((success) =>
+        success({ coords: { latitude: 10.31, longitude: 123.88 } })),
+    },
+  });
+
+  renderHome();
+  await waitFor(() => expect(global.fetch).toHaveBeenCalled());
+  fireEvent.click(screen.getByRole('button', { name: /Near Me/i }));
+
+  await waitFor(() => {
+    const call = (global.fetch as jest.Mock).mock.calls
+      .find(([url]) => String(url).includes('/api/establishments/nearby'));
+    expect(call).toBeTruthy();
+    expect(JSON.parse(call![1].body)).toMatchObject({
+      latitude: 10.31,
+      longitude: 123.88,
+    });
+  });
+});
