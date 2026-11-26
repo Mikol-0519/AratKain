@@ -11,6 +11,7 @@ The other clients live in [`../AratKain-Backend/`](../AratKain-Backend/) and
 
 - Sign up, log in, and reset a password through Supabase Auth
 - Browse the establishment catalogue and find nearby places on a Leaflet map
+- `Near Me` retries the browser location and falls back to an approximate IP-based location on desktops without a GPS fix
 - Search real cafes, restaurants and bars from OpenStreetMap; results are saved locally so you can favorite them
 - See place type, rating, distance, and opening status when the API provides them
 - Save and unsave places (stored in the shared Supabase `favorites` table)

@@ -38,9 +38,9 @@ const BASE_URL = "";
 
 const FILTERS: { id: SpotTypeFilter; label: string; icon: ReactElement }[] = [
   { id: "all",        label: "All",         icon: <Icon.MapPin /> },
-  { id: "cafe",       label: "Cafes",       icon: <TYPE_ICON.cafe /> },
-  { id: "restaurant", label: "Restaurants", icon: <TYPE_ICON.restaurant /> },
-  { id: "bar",        label: "Bars",        icon: <TYPE_ICON.bar /> },
+  { id: "cafe",       label: "Cafes",       icon: TYPE_ICON.cafe() },
+  { id: "restaurant", label: "Restaurants", icon: TYPE_ICON.restaurant() },
+  { id: "bar",        label: "Bars",        icon: TYPE_ICON.bar() },
 ];
 
 const FILTER_TITLE: Record<SpotTypeFilter, string> = {
@@ -811,7 +811,8 @@ export default function HomePage({ onLogout, user, onUserUpdate }: HomePageProps
 
     try {
       const fix = await locateUser();
-      setLocationState({ status: "located", lat: fix.lat, lng: fix.lng });
+      setLocationState({ status: "located", lat: fix.lat, lng: fix.lng,
+        approximate: fix.approximate, label: fix.label });
 
       if (leafletMap.current) {
         const L = (window as any).L;
@@ -823,7 +824,9 @@ export default function HomePage({ onLogout, user, onUserUpdate }: HomePageProps
         });
         userMarker.current = L.marker([fix.lat,fix.lng],{icon:uIcon})
           .addTo(leafletMap.current)
-          .bindTooltip(fix.approximate ? "Approximate location" : "You are here",
+          .bindTooltip(fix.approximate
+            ? (fix.label ? `Approximate location: ${fix.label}` : "Approximate location")
+            : "You are here",
             {className:"marker-tooltip",direction:"top",offset:[0,-12]});
       }
 
@@ -885,7 +888,10 @@ export default function HomePage({ onLogout, user, onUserUpdate }: HomePageProps
             <div className="results-title">{FILTER_TITLE[filter]}</div>
             <div className="results-subtitle">
               {spots.length} place{spots.length !== 1 ? "s" : ""} found
-              {located ? " · sorted by distance" : " · sorted by rating"}
+              {located
+                ? ` · sorted by distance${locationState.status === "located" && locationState.approximate
+                    ? ` · near ${locationState.label ?? "your approximate location"} (approximate)` : ""}`
+                : " · sorted by rating"}
             </div>
           </div>
           <div className="results-list">

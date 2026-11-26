@@ -51,7 +51,7 @@ export const emptySpotsState: SpotsState = { status: 'idle', spots: [] };
 export type LocationState =
   | { status: 'idle' }
   | { status: 'locating' }
-  | { status: 'located'; lat: number; lng: number }
+  | { status: 'located'; lat: number; lng: number; approximate?: boolean; label?: string }
   /** Permission denied, or the platform has no geolocation at all. */
   | { status: 'unavailable'; message: string }
   /** The lookup started but did not complete in time. */
