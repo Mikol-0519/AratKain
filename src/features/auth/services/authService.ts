@@ -1,4 +1,8 @@
 import { supabase } from './supabaseClient';
+import {
+  validatePassword,
+  validatePasswordConfirmation,
+} from '../utils/passwordPolicy';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -21,6 +25,44 @@ export interface AuthError {
   fieldErrors?: Record<string, string>;
 }
 
+/**
+ * The outcome of a registration attempt.
+ *
+ * The register form used to always assume success and send the user to the
+ * dashboard. That is only true when Supabase returns a session — which it
+ * does when email confirmation is disabled. When confirmation is enabled,
+ * `signUp` returns a user but no session, the own-row RLS policy on
+ * `users` then rejects the profile insert, and the user got the unhelpful
+ * "Failed to save user profile". This makes the branch explicit.
+ */
+export type RegisterOutcome =
+  | { status: 'authenticated'; user: AuthUser }
+  | { status: 'pending-confirmation'; email: string };
+
+// ── Profile lookup ────────────────────────────────────────────────────────────
+
+/**
+ * Load the public profile for a user id.
+ *
+ * Used by the session restore, by the login flow and by the auth-state
+ * subscription — three call sites that used to carry their own copy of this
+ * query and their own fallback rules.
+ */
+export async function fetchAuthUser(userId: string, email: string): Promise<AuthUser> {
+  const { data: profile } = await supabase
+    .from('users')
+    .select('username, fullname')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  return {
+    id: userId,
+    email,
+    username: profile?.username ?? email.split('@')[0] ?? '',
+    fullname: profile?.fullname ?? '',
+  };
+}
+
 // ── Register ───────────────────────────────────────────────────────────────────
 
 export async function registerUser(
@@ -29,7 +71,7 @@ export async function registerUser(
   email: string,
   password: string,
   confirmPassword: string
-): Promise<AuthUser> {
+): Promise<RegisterOutcome> {
 
   // Client-side validation
   const fieldErrors: Record<string, string> = {};
@@ -39,8 +81,10 @@ export async function registerUser(
                                        fieldErrors.username = 'Username can only contain letters, numbers, and underscores';
   if (!fullname.trim())               fieldErrors.fullname = 'Full name is required';
   if (!email.includes('@'))           fieldErrors.email    = 'Enter a valid email address';
-  if (password.length < 6)            fieldErrors.password = 'Password must be at least 6 characters';
-  if (password !== confirmPassword)   fieldErrors.confirmPassword = 'Passwords do not match';
+  const passwordError = validatePassword(password);
+  if (passwordError)                 fieldErrors.password = passwordError;
+  const mismatchError = validatePasswordConfirmation(password, confirmPassword);
+  if (mismatchError)      fieldErrors.confirmPassword = mismatchError;
 
   if (Object.keys(fieldErrors).length > 0) {
     const err: AuthError = { type: 'VALIDATION_ERROR', message: 'Please fix the errors below', fieldErrors };
@@ -88,13 +132,25 @@ export async function registerUser(
     throw err;
   }
 
+  // No session yet => Supabase is configured to require email confirmation.
+  // The profile insert below would be rejected by the own-row RLS policy
+  // (it needs an authenticated caller), so stop here and tell the user
+  // what is actually happening instead of reporting a failed insert.
+  if (!data.session) {
+    return { status: 'pending-confirmation', email };
+  }
+
   // Save extra profile data into our users table
   const { error: insertError } = await supabase.from('users').insert({
     user_id:  data.user.id,
     username,
     fullname,
     email,
-    password: '—',          // actual password is managed by Supabase Auth
+    // Legacy column: the backend's own auth endpoints are gone, so nothing
+    // reads this any more. It is dropped in
+    // AratKain-Backend/sql/migrations/002_drop_users_password.sql — run step 1
+    // of that migration, then this line, then step 2.
+    password: '—',
     role:     'user',
   });
 
@@ -103,7 +159,10 @@ export async function registerUser(
     throw err;
   }
 
-  return { id: data.user.id, email, username, fullname };
+  return {
+    status: 'authenticated',
+    user: { id: data.user.id, email, username, fullname },
+  };
 }
 
 // ── Login ──────────────────────────────────────────────────────────────────────
@@ -142,19 +201,7 @@ export async function loginUser(email: string, password: string): Promise<AuthUs
     throw err;
   }
 
-  // Fetch profile from our users table
-  const { data: profile } = await supabase
-    .from('users')
-    .select('username, fullname')
-    .eq('user_id', data.user.id)
-    .maybeSingle();
-
-  return {
-    id:       data.user.id,
-    email:    data.user.email ?? email,
-    username: profile?.username ?? email.split('@')[0],
-    fullname: profile?.fullname ?? '',
-  };
+  return fetchAuthUser(data.user.id, data.user.email ?? email);
 }
 
 // ── Logout ─────────────────────────────────────────────────────────────────────

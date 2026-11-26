@@ -2,16 +2,13 @@ import { useState } from 'react';
 import '../styles/auth.css';
 import LeftPanel from '../components/LeftPanel';
 import { supabase } from '../services/supabaseClient';
+import { FormStatus, isSubmitting } from '../machines/formStatus';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 interface ForgotPasswordPageProps { onBack: () => void; }
 
-interface ForgotState {
+interface ForgotValues {
   email: string;
-  loading: boolean;
-  success: boolean;
-  error: string;
-  fieldErrors: Record<string, string>;
 }
 
 // ── Slice 1: Success View ─────────────────────────────────────────────────────
@@ -30,7 +27,7 @@ const SuccessView = ({ email, onBack }: { email: string; onBack: () => void }) =
       boxShadow: '0 8px 24px rgba(44,122,75,0.3)',
     }}>
       <svg width="36" height="36" viewBox="0 0 24 24" fill="none"
-           stroke="white" strokeWidth="2.5">
+           stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
         <path d="M4 6h16v12H4z"/>
         <polyline points="4,7 12,13 20,7"/>
       </svg>
@@ -54,9 +51,10 @@ const ErrorBanner = ({ error }: { error: string }) => {
   if (!error) return null;
   return (
     <div className="error-banner" role="alert">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" strokeWidth="2">
         <circle cx="12" cy="12" r="10"/>
-        <line x1="12" y1="8" x2="12" y2="12"/>
+        <line x1="12" y1="8"  x2="12"    y2="12"/>
         <line x1="12" y1="16" x2="12.01" y2="16"/>
       </svg>
       {error}
@@ -76,39 +74,50 @@ const ErrorBanner = ({ error }: { error: string }) => {
  * that the email link opens.
  */
 export default function ForgotPasswordPage({ onBack }: ForgotPasswordPageProps) {
-  const [state, setState] = useState<ForgotState>({
-    email: '', loading: false, success: false, error: '', fieldErrors: {},
-  });
+  const [values, setValues] = useState<ForgotValues>({ email: '' });
+  const [status, setStatus] = useState<FormStatus>({ status: 'idle' });
 
-  const update = (partial: Partial<ForgotState>) => setState(p => ({ ...p, ...partial }));
+  const fieldErrors = status.status === 'invalid' ? status.fieldErrors : {};
+  const serverError = status.status === 'failed' ? status.message : '';
 
   const handleSubmit = async () => {
-    update({ error: '', fieldErrors: {} });
+    const email = values.email.trim().toLowerCase();
 
-    if (!state.email.trim()) { update({ fieldErrors: { email: 'Email is required' } }); return; }
-    if (!state.email.includes('@')) { update({ fieldErrors: { email: 'Enter a valid email address' } }); return; }
+    if (!email) {
+      setStatus({ status: 'invalid', fieldErrors: { email: 'Email is required' } });
+      return;
+    }
+    if (!email.includes('@')) {
+      setStatus({ status: 'invalid', fieldErrors: { email: 'Enter a valid email address' } });
+      return;
+    }
 
-    update({ loading: true });
+    setStatus({ status: 'submitting' });
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(
-        state.email.toLowerCase().trim(),
+        email,
         // The reset link must open this same site; the redirect URL has to be
         // allow-listed in the Supabase Auth dashboard (see SECURITY.md).
         { redirectTo: window.location.origin },
       );
 
-      if (error) { update({ error: 'Unable to send the reset email. Please try again.', loading: false }); return; }
-      update({ success: true, loading: false });
-    } catch { update({ error: 'An unexpected error occurred. Please try again.', loading: false }); }
+      if (error) {
+        setStatus({ status: 'failed', message: 'Unable to send the reset email. Please try again.' });
+        return;
+      }
+      setStatus({ status: 'succeeded' });
+    } catch {
+      setStatus({ status: 'failed', message: 'An unexpected error occurred. Please try again.' });
+    }
   };
 
   // ── Render ─────────────────────────────────────────────────────────────────
-  if (state.success) {
+  if (status.status === 'succeeded') {
     return (
       <div className="auth-container">
         <LeftPanel />
         <div className="right-panel">
-          <SuccessView email={state.email.toLowerCase().trim()} onBack={onBack} />
+          <SuccessView email={values.email.toLowerCase().trim()} onBack={onBack} />
         </div>
       </div>
     );
@@ -127,32 +136,36 @@ export default function ForgotPasswordPage({ onBack }: ForgotPasswordPageProps) 
             </div>
           </div>
 
-          <ErrorBanner error={state.error} />
+          <ErrorBanner error={serverError} />
 
           <div className="form-group">
             <label className="form-label">Email Address</label>
             <input
-              className={`form-input${state.fieldErrors.email ? ' input-error' : ''}`}
+              className={`form-input${fieldErrors.email ? ' input-error' : ''}`}
               type="email"
               placeholder="you@example.com"
-              value={state.email}
-              onChange={e => update({ email: e.target.value, fieldErrors: {} })}
+              value={values.email}
+              onChange={e => {
+                setValues(v => ({ ...v, email: e.target.value }));
+                setStatus(s => (s.status === 'invalid' ? { status: 'idle' } : s));
+              }}
               onKeyDown={e => e.key === 'Enter' && handleSubmit()}
               autoFocus
             />
-            {state.fieldErrors.email && (
+            {fieldErrors.email && (
               <div className="field-error">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" strokeWidth="2.5">
                   <circle cx="12" cy="12" r="10"/>
-                  <line x1="12" y1="8" x2="12" y2="12"/>
+                  <line x1="12" y1="8"  x2="12"    y2="12"/>
                   <line x1="12" y1="16" x2="12.01" y2="16"/>
                 </svg>
-                {state.fieldErrors.email}
+                {fieldErrors.email}
               </div>
             )}
           </div>
-          <button className="btn-primary" onClick={handleSubmit} disabled={state.loading}>
-            {state.loading ? <span className="spinner" /> : 'Send Reset Link →'}
+          <button className="btn-primary" onClick={handleSubmit} disabled={isSubmitting(status)}>
+            {isSubmitting(status) ? <span className="spinner" /> : 'Send Reset Link →'}
           </button>
         </div>
 

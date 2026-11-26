@@ -21,11 +21,6 @@ export default function MapVisual() {
            style={{ top: 'calc(28% + 11px)', left: 'calc(55% + 11px)' }} />
       <Pin variant="latte" style={{ top: '50%', left: '28%' }} />
       <Pin variant="latte" style={{ top: '20%', left: '72%' }} />
-      <div className="nearby-badge">
-        <div className="badge-dot" />
-        <div className="badge-text">Nearby spots found</div>
-        <div className="badge-count">14</div>
-      </div>
     </div>
   );
 }

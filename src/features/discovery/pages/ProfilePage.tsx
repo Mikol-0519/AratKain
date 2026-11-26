@@ -1,12 +1,33 @@
 import { useState, useRef, useEffect } from 'react';
-import { supabase } from '../services/supabaseClient';
-import { AuthUser } from '../services/authService';
+import { supabase } from '../../auth/services/supabaseClient';
+import { AuthUser } from '../../auth/services/authService';
+import { FormStatus, isSubmitting } from '../../auth/machines/formStatus';
+import {
+  validatePassword,
+  validatePasswordConfirmation,
+} from '../../auth/utils/passwordPolicy';
 
+// ── Types ──────────────────────────────────────────────────────
 interface ProfilePageProps {
   user: AuthUser;
   onBack: () => void;
   onUpdated: (updated: AuthUser) => void;
 }
+
+/**
+ * The avatar upload state machine.
+ *
+ * Uploading used to be three independent values (`uploading`, `uploadProgress`,
+ * `photoError`) plus a `photoUrl` that was written to the database and to
+ * localStorage with two *different* strings (one with a cache-busting
+ * timestamp, one without), so the cache and the database always disagreed.
+ */
+type AvatarState =
+  | { status: 'idle'; url: string | null }
+  | { status: 'uploading'; url: string | null; progress: number }
+  | { status: 'error'; url: string | null; message: string };
+
+const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
 
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600&display=swap');
@@ -125,7 +146,6 @@ const styles = `
     font-weight: 700;
     color: var(--espresso);
   }
-
   .profile-content-header p {
     font-size: 0.85rem;
     color: var(--muted);
@@ -178,8 +198,8 @@ const styles = `
     position: absolute;
     bottom: 2px; right: 2px;
     width: 30px; height: 30px;
-    background: var(--accent);
     border-radius: 50%;
+    background: var(--accent);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -219,7 +239,7 @@ const styles = `
     width: 100%;
     height: 1px;
     background: rgba(200,169,126,0.15);
-    margin: 1.5rem 0;
+    margin: 2.5rem 0;
     position: relative;
     z-index: 1;
   }
@@ -252,10 +272,10 @@ const styles = `
 
   .sidebar-meta-label {
     font-size: 0.7rem;
-    color: rgba(200,169,126,0.55);
+    font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    font-weight: 600;
+    color: rgba(200,169,126,0.55);
   }
 
   .sidebar-meta-value {
@@ -338,6 +358,7 @@ const styles = `
     transition: border-color 0.2s, box-shadow 0.2s;
     width: 100%;
   }
+
   .field-input:focus {
     border-color: var(--latte);
     box-shadow: 0 0 0 3px rgba(200,169,126,0.12);
@@ -378,7 +399,7 @@ const styles = `
 
   @keyframes fadeIn {
     from { opacity: 0; transform: translateY(-6px); }
-    to   { opacity: 1; transform: translateY(0); }
+    to { opacity: 1; transform: translateY(0); }
   }
 
   .save-btn {
@@ -416,13 +437,17 @@ const styles = `
   @keyframes spin { to { transform: rotate(360deg); } }
 `;
 
+// ── Main Component ───────────────────────────────────────────────────────────
 export default function ProfilePage({ user, onBack, onUpdated }: ProfilePageProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ── Avatar state ──────────────────────────────────────────
-  const [photoUrl,      setPhotoUrl]      = useState<string | null>(
-    () => localStorage.getItem(`aratkain_avatar_${user.id}`) || null
-  );
+  const [avatar, setAvatar] = useState<AvatarState>(() => ({
+    status: 'idle',
+    url: localStorage.getItem(`aratkain_avatar_${user.id}`) || null,
+  }));
+  /** Bumped on every successful upload so the browser re-fetches the image. */
+  const [avatarVersion, setAvatarVersion] = useState(0);
 
   // Load photo_url from database on mount
   useEffect(() => {
@@ -433,34 +458,33 @@ export default function ProfilePage({ user, onBack, onUpdated }: ProfilePageProp
       .maybeSingle()
       .then(({ data }) => {
         if (data?.photo_url) {
-          setPhotoUrl(data.photo_url);
+          setAvatar(prev => (prev.status === 'uploading' ? prev : { status: 'idle', url: data.photo_url }));
           localStorage.setItem(`aratkain_avatar_${user.id}`, data.photo_url);
         }
       });
   }, [user.id]);
-  const [uploading,     setUploading]     = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [photoError,    setPhotoError]    = useState('');
 
-  // ── Info state ────────────────────────────────────────────
-  const [username,        setUsername]        = useState(user.username);
-  const [fullname,        setFullname]        = useState(user.fullname);
-  const [infoLoading,     setInfoLoading]     = useState(false);
-  const [infoSuccess,     setInfoSuccess]     = useState('');
-  const [infoError,       setInfoError]       = useState('');
-  const [infoFieldErrors, setInfoFieldErrors] = useState<Record<string, string>>({});
+  // ── Info form ─────────────────────────────────────────────
+  const [username, setUsername] = useState(user.username);
+  const [fullname, setFullname] = useState(user.fullname);
+  const [infoStatus, setInfoStatus] = useState<FormStatus>({ status: 'idle' });
 
-  // ── Password state ────────────────────────────────────────
+  // ── Password form ─────────────────────────────────────────
   const [newPassword,     setNewPassword]     = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [pwLoading,       setPwLoading]       = useState(false);
-  const [pwSuccess,       setPwSuccess]       = useState('');
-  const [pwError,         setPwError]         = useState('');
-  const [pwFieldErrors,   setPwFieldErrors]   = useState<Record<string, string>>({});
+  const [pwStatus,        setPwStatus]        = useState<FormStatus>({ status: 'idle' });
 
   const initials = user.fullname
     ? user.fullname.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
     : user.username.slice(0, 2).toUpperCase();
+
+  const infoFieldErrors  = infoStatus.status === 'invalid' ? infoStatus.fieldErrors : {};
+  const infoErrorMessage = infoStatus.status === 'failed' ? infoStatus.message : '';
+  const infoSuccess      = infoStatus.status === 'succeeded' ? 'Profile updated successfully!' : '';
+
+  const pwFieldErrors    = pwStatus.status === 'invalid' ? pwStatus.fieldErrors : {};
+  const pwErrorMessage   = pwStatus.status === 'failed' ? pwStatus.message : '';
+  const pwSuccess        = pwStatus.status === 'succeeded' ? 'Password updated successfully!' : '';
 
   // ── Photo upload ──────────────────────────────────────────
   const handlePhotoClick = () => {
@@ -469,100 +493,98 @@ export default function ProfilePage({ user, onBack, onUpdated }: ProfilePageProp
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+
+    // Reset the input first so that picking the *same* file again always
+    // fires a change event - previously the fallback path returned before
+    // this line, so a retry with the same file did nothing.
+    e.target.value = '';
+
     if (!file) return;
 
-    setPhotoError('');
-
-    // Validate type
     if (!file.type.startsWith('image/')) {
-      setPhotoError('Please select an image file (JPG, PNG, etc.)');
+      setAvatar(prev => ({ status: 'error', url: prev.url, message: 'Please select an image file (JPG, PNG, etc.)' }));
       return;
     }
 
-    // Validate size (max 2MB)
-    if (file.size > 2 * 1024 * 1024) {
-      setPhotoError('Image must be smaller than 2MB');
+    if (file.size > MAX_AVATAR_BYTES) {
+      setAvatar(prev => ({ status: 'error', url: prev.url, message: 'Image must be smaller than 2MB' }));
       return;
     }
 
-    setUploading(true);
-    setUploadProgress(10);
+    setAvatar(prev => ({ status: 'uploading', url: prev.url, progress: 10 }));
 
     try {
-      // Try uploading to Supabase Storage
       const ext = file.name.split('.').pop();
       const path = `avatars/${user.id}.${ext}`;
 
-      setUploadProgress(40);
+      setAvatar(prev => (prev.status === 'uploading' ? { ...prev, progress: 40 } : prev));
 
       const { error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(path, file, { upsert: true });
 
       if (uploadError) {
-        // Supabase storage bucket may not exist — fall back to local base64
+        // The Supabase storage bucket may not exist - fall back to storing the
+        // image inline in the users table.
         const reader = new FileReader();
         reader.onload = async () => {
           const base64 = reader.result as string;
-          setPhotoUrl(base64);
-          localStorage.setItem(`aratkain_avatar_${user.id}`, base64);
-
-          // Save base64 to users table as fallback
           await supabase
             .from('users')
             .update({ photo_url: base64 })
             .eq('user_id', user.id);
 
-          setUploadProgress(100);
-          setTimeout(() => { setUploading(false); setUploadProgress(0); }, 500);
+          localStorage.setItem(`aratkain_avatar_${user.id}`, base64);
+          setAvatar({ status: 'idle', url: base64 });
+          setAvatarVersion(v => v + 1);
         };
         reader.readAsDataURL(file);
         return;
       }
 
-      setUploadProgress(80);
+      setAvatar(prev => (prev.status === 'uploading' ? { ...prev, progress: 80 } : prev));
 
-      // Get public URL
+      // Store the *same* clean URL in the database and in the local cache.
+      // They used to differ (the cache had a cache-busting timestamp appended),
+      // so the two stores always disagreed about the current avatar.
       const { data } = supabase.storage.from('avatars').getPublicUrl(path);
-      const url = data.publicUrl + '?t=' + Date.now();
-      setPhotoUrl(url);
-      localStorage.setItem(`aratkain_avatar_${user.id}`, url);
+      const publicUrl = data.publicUrl;
 
-      // Save URL to users table
       await supabase
         .from('users')
-        .update({ photo_url: data.publicUrl })
+        .update({ photo_url: publicUrl })
         .eq('user_id', user.id);
 
-      setUploadProgress(100);
-      setTimeout(() => { setUploading(false); setUploadProgress(0); }, 500);
-
+      localStorage.setItem(`aratkain_avatar_${user.id}`, publicUrl);
+      setAvatar({ status: 'idle', url: publicUrl });
+      setAvatarVersion(v => v + 1);
     } catch {
-      setPhotoError('Failed to upload photo. Please try again.');
-      setUploading(false);
-      setUploadProgress(0);
+      setAvatar(prev => ({ status: 'error', url: prev.url, message: 'Failed to upload photo. Please try again.' }));
     }
-
-    // Reset input so same file can be re-selected
-    e.target.value = '';
   };
 
   // ── Save profile info ─────────────────────────────────────
   const handleSaveInfo = async () => {
-    setInfoSuccess(''); setInfoError(''); setInfoFieldErrors({});
-
     const errors: Record<string, string> = {};
     if (!username.trim())           errors.username = 'Username is required';
     else if (username.length < 3)   errors.username = 'At least 3 characters';
     else if (!/^[a-zA-Z0-9_]+$/.test(username)) errors.username = 'Letters, numbers, underscores only';
     if (!fullname.trim())           errors.fullname = 'Full name is required';
 
-    if (Object.keys(errors).length > 0) { setInfoFieldErrors(errors); return; }
+    if (Object.keys(errors).length > 0) {
+      setInfoStatus({ status: 'invalid', fieldErrors: errors });
+      return;
+    }
 
-    setInfoLoading(true);
+    setInfoStatus({ status: 'submitting' });
     try {
-      const { data: session } = await supabase.auth.getSession();
-      const userId = session.session?.user.id;
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user.id;
+
+      if (!userId) {
+        setInfoStatus({ status: 'failed', message: 'Your session has expired. Please sign in again.' });
+        return;
+      }
 
       const { error } = await supabase
         .from('users')
@@ -570,44 +592,49 @@ export default function ProfilePage({ user, onBack, onUpdated }: ProfilePageProp
         .eq('user_id', userId);
 
       if (error) {
-        if (error.message.includes('username')) {
-          setInfoFieldErrors({ username: 'This username is already taken' });
+        // 23505 = Postgres unique_violation. Checking the code is reliable;
+        // matching on the message text broke whenever Postgres reworded it.
+        if (error.code === '23505') {
+          setInfoStatus({ status: 'invalid', fieldErrors: { username: 'This username is already taken' } });
         } else {
-          setInfoError('Failed to update profile. Please try again.');
+          setInfoStatus({ status: 'failed', message: 'Failed to update profile. Please try again.' });
         }
         return;
       }
 
-      setInfoSuccess('Profile updated successfully!');
+      setInfoStatus({ status: 'succeeded' });
       onUpdated({ ...user, username, fullname });
     } catch {
-      setInfoError('An unexpected error occurred.');
-    } finally {
-      setInfoLoading(false);
+      setInfoStatus({ status: 'failed', message: 'An unexpected error occurred.' });
     }
   };
 
   // ── Save new password ─────────────────────────────────────
   const handleSavePassword = async () => {
-    setPwSuccess(''); setPwError(''); setPwFieldErrors({});
-
     const errors: Record<string, string> = {};
-    if (!newPassword)                errors.newPassword     = 'New password is required';
-    else if (newPassword.length < 6) errors.newPassword     = 'At least 6 characters';
-    if (newPassword !== confirmPassword) errors.confirmPassword = 'Passwords do not match';
 
-    if (Object.keys(errors).length > 0) { setPwFieldErrors(errors); return; }
+    const passwordError = validatePassword(newPassword);
+    if (passwordError) errors.newPassword = passwordError;
 
-    setPwLoading(true);
+    const mismatchError = validatePasswordConfirmation(newPassword, confirmPassword);
+    if (mismatchError) errors.confirmPassword = mismatchError;
+
+    if (Object.keys(errors).length > 0) {
+      setPwStatus({ status: 'invalid', fieldErrors: errors });
+      return;
+    }
+
+    setPwStatus({ status: 'submitting' });
     try {
       const { error } = await supabase.auth.updateUser({ password: newPassword });
-      if (error) { setPwError(error.message || 'Failed to update password.'); return; }
-      setPwSuccess('Password updated successfully!');
+      if (error) {
+        setPwStatus({ status: 'failed', message: error.message || 'Failed to update password.' });
+        return;
+      }
+      setPwStatus({ status: 'succeeded' });
       setNewPassword(''); setConfirmPassword('');
     } catch {
-      setPwError('An unexpected error occurred.');
-    } finally {
-      setPwLoading(false);
+      setPwStatus({ status: 'failed', message: 'An unexpected error occurred.' });
     }
   };
 
@@ -635,13 +662,13 @@ export default function ProfilePage({ user, onBack, onUpdated }: ProfilePageProp
             <div className="avatar-section">
               <div className="avatar-wrapper" onClick={handlePhotoClick} title="Click to change photo">
                 <div className="avatar-circle">
-                  {photoUrl
-                    ? <img src={photoUrl} alt="Profile" />
+                  {avatar.url
+                    ? <img src={`${avatar.url}${avatar.url.includes('?') ? '&' : '?'}v=${avatarVersion}`} alt="Profile" />
                     : initials
                   }
                 </div>
                 <div className="avatar-upload-overlay">
-                  {uploading
+                  {avatar.status === 'uploading'
                     ? <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ animation: 'spin 0.7s linear infinite' }}>
                         <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
                       </svg>
@@ -662,20 +689,20 @@ export default function ProfilePage({ user, onBack, onUpdated }: ProfilePageProp
                 onChange={handleFileChange}
               />
 
-              {uploading && (
+              {avatar.status === 'uploading' && (
                 <div className="upload-progress">
-                  <div className="upload-progress-bar" style={{ width: `${uploadProgress}%` }} />
+                  <div className="upload-progress-bar" style={{ width: `${avatar.progress}%` }} />
                 </div>
               )}
 
-              {photoError && (
+              {avatar.status === 'error' && (
                 <div style={{ fontSize: '0.7rem', color: 'var(--latte)', marginTop: 4, textAlign: 'center' }}>
-                  {photoError}
+                  {avatar.message}
                 </div>
               )}
 
               <div className="avatar-upload-hint">
-                {uploading ? 'Uploading…' : 'Click photo to change · Max 2MB'}
+                {avatar.status === 'uploading' ? 'Uploading…' : 'Click photo to change · Max 2MB'}
               </div>
 
               <div className="avatar-name">{fullname || username}</div>
@@ -697,7 +724,7 @@ export default function ProfilePage({ user, onBack, onUpdated }: ProfilePageProp
               </div>
               <div className="sidebar-meta-item">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                  <path d="M2 6h20v12H2z"/>
                   <polyline points="22,6 12,13 2,6"/>
                 </svg>
                 <div>
@@ -743,12 +770,12 @@ export default function ProfilePage({ user, onBack, onUpdated }: ProfilePageProp
                   {infoSuccess}
                 </div>
               )}
-              {infoError && (
+              {infoErrorMessage && (
                 <div className="error-banner">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
                   </svg>
-                  {infoError}
+                  {infoErrorMessage}
                 </div>
               )}
 
@@ -758,7 +785,10 @@ export default function ProfilePage({ user, onBack, onUpdated }: ProfilePageProp
                   <input
                     className={`field-input ${infoFieldErrors.username ? 'error' : ''}`}
                     value={username}
-                    onChange={e => { setUsername(e.target.value); setInfoFieldErrors(p => ({...p, username: ''})); }}
+                    onChange={e => {
+                      setUsername(e.target.value);
+                      setInfoStatus(s => s.status === 'invalid' ? { status: 'idle' } : s);
+                    }}
                     placeholder="username"
                   />
                   {infoFieldErrors.username && <span className="field-error">{infoFieldErrors.username}</span>}
@@ -768,7 +798,10 @@ export default function ProfilePage({ user, onBack, onUpdated }: ProfilePageProp
                   <input
                     className={`field-input ${infoFieldErrors.fullname ? 'error' : ''}`}
                     value={fullname}
-                    onChange={e => { setFullname(e.target.value); setInfoFieldErrors(p => ({...p, fullname: ''})); }}
+                    onChange={e => {
+                      setFullname(e.target.value);
+                      setInfoStatus(s => s.status === 'invalid' ? { status: 'idle' } : s);
+                    }}
                     placeholder="Your full name"
                   />
                   {infoFieldErrors.fullname && <span className="field-error">{infoFieldErrors.fullname}</span>}
@@ -786,8 +819,8 @@ export default function ProfilePage({ user, onBack, onUpdated }: ProfilePageProp
                 <span style={{ fontSize: '0.7rem', color: 'var(--muted)' }}>Email cannot be changed</span>
               </div>
 
-              <button className="save-btn" onClick={handleSaveInfo} disabled={infoLoading}>
-                {infoLoading ? <span className="spinner" /> : (
+              <button className="save-btn" onClick={handleSaveInfo} disabled={isSubmitting(infoStatus)}>
+                {isSubmitting(infoStatus) ? <span className="spinner" /> : (
                   <>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
@@ -817,12 +850,12 @@ export default function ProfilePage({ user, onBack, onUpdated }: ProfilePageProp
                   {pwSuccess}
                 </div>
               )}
-              {pwError && (
+              {pwErrorMessage && (
                 <div className="error-banner">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
                   </svg>
-                  {pwError}
+                  {pwErrorMessage}
                 </div>
               )}
 
@@ -833,7 +866,10 @@ export default function ProfilePage({ user, onBack, onUpdated }: ProfilePageProp
                     className={`field-input ${pwFieldErrors.newPassword ? 'error' : ''}`}
                     type="password" placeholder="••••••••"
                     value={newPassword}
-                    onChange={e => { setNewPassword(e.target.value); setPwFieldErrors(p => ({...p, newPassword: ''})); }}
+                    onChange={e => {
+                      setNewPassword(e.target.value);
+                      setPwStatus(s => s.status === 'invalid' ? { status: 'idle' } : s);
+                    }}
                   />
                   {pwFieldErrors.newPassword && <span className="field-error">{pwFieldErrors.newPassword}</span>}
                 </div>
@@ -843,14 +879,17 @@ export default function ProfilePage({ user, onBack, onUpdated }: ProfilePageProp
                     className={`field-input ${pwFieldErrors.confirmPassword ? 'error' : ''}`}
                     type="password" placeholder="••••••••"
                     value={confirmPassword}
-                    onChange={e => { setConfirmPassword(e.target.value); setPwFieldErrors(p => ({...p, confirmPassword: ''})); }}
+                    onChange={e => {
+                      setConfirmPassword(e.target.value);
+                      setPwStatus(s => s.status === 'invalid' ? { status: 'idle' } : s);
+                    }}
                   />
                   {pwFieldErrors.confirmPassword && <span className="field-error">{pwFieldErrors.confirmPassword}</span>}
                 </div>
               </div>
 
-              <button className="save-btn" onClick={handleSavePassword} disabled={pwLoading}>
-                {pwLoading ? <span className="spinner" /> : (
+              <button className="save-btn" onClick={handleSavePassword} disabled={isSubmitting(pwStatus)}>
+                {isSubmitting(pwStatus) ? <span className="spinner" /> : (
                   <>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>

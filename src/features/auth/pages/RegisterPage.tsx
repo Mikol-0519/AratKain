@@ -5,7 +5,8 @@ import FormInput from '../components/FormInput';
 import StrengthMeter from '../components/StrengthMeter';
 import LeftPanel from '../components/LeftPanel';
 import { registerUser, AuthError, AuthUser } from '../services/authService';
-import { getPasswordStrength } from '../utils/PasswordStrength';
+import { describeAuthError, FieldErrors } from '../machines/authErrors';
+import { getPasswordStrength } from '../utils/passwordPolicy';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 interface RegisterPageProps {
@@ -13,18 +14,29 @@ interface RegisterPageProps {
   onSuccess: (user: AuthUser) => void;
 }
 
-interface RegisterState {
+interface RegisterValues {
   username: string;
   fullname: string;
   email: string;
   password: string;
   confirmPassword: string;
-  fieldErrors: Record<string, string>;
-  serverError: string;
-  loading: boolean;
-  registered: boolean;
-  registeredUser: AuthUser | null;
 }
+
+/**
+ * The register form's state machine.
+ *
+ * Two terminal states, not one: the account can be usable right away
+ * (`confirmed`) or it can be waiting for the user to click the confirmation
+ * email (`pending-confirmation`). The old code always took the first path
+ * and reported a failed profile insert when the second one was the truth.
+ */
+type RegisterStatus =
+  | { status: 'idle' }
+  | { status: 'submitting' }
+  | { status: 'invalid'; fieldErrors: FieldErrors }
+  | { status: 'failed'; message: string }
+  | { status: 'confirmed'; user: AuthUser }
+  | { status: 'pending-confirmation'; email: string };
 
 // ── Slice 1: Form Header ─────────────────────────────────────────────────────
 const FormHeader = () => (
@@ -51,7 +63,7 @@ const ErrorBanner = ({ error }: { error: string }) => {
   );
 };
 
-// ── Slice 3: Text Inputs (Email, Username, Fullname) ───────────────────────
+// ── Slice 3: Text Inputs (Email, Username, Fullname) ────────────────────────
 interface TextInputsProps {
   email: string;
   setEmail: (v: string) => void;
@@ -59,7 +71,7 @@ interface TextInputsProps {
   setUsername: (v: string) => void;
   fullname: string;
   setFullname: (v: string) => void;
-  fieldErrors: Record<string, string>;
+  fieldErrors: FieldErrors;
   clearField: (field: string) => void;
 }
 
@@ -94,7 +106,7 @@ const TextInputs = ({ email, setEmail, username, setUsername, fullname, setFulln
 interface PasswordInputProps {
   password: string;
   setPassword: (v: string) => void;
-  fieldErrors: Record<string, string>;
+  fieldErrors: FieldErrors;
   clearField: (field: string) => void;
 }
 
@@ -215,7 +227,7 @@ const SuccessView = ({ user, onSuccess, onSwitch }: SuccessViewProps) => (
       fontSize: '0.82rem', color: '#8A7060',
       marginBottom: '2rem', lineHeight: 1.6,
     }}>
-      You're all set! Start discovering cafes and restaurants near you.
+      You&apos;re all set! Start discovering cafes and restaurants near you.
     </div>
     <button className="btn-primary" onClick={() => onSuccess(user)}>
       Go to Map →
@@ -226,44 +238,86 @@ const SuccessView = ({ user, onSuccess, onSwitch }: SuccessViewProps) => (
   </div>
 );
 
+// ── Slice 9: Pending confirmation View ───────────────────────────────────────
+const PendingConfirmationView = ({ email, onSwitch }: { email: string; onSwitch: (mode: AuthMode) => void }) => (
+  <div className="form-card fade-in" style={{ textAlign: 'center' }}>
+    <div style={{
+      width: 72, height: 72,
+      borderRadius: '50%',
+      background: 'linear-gradient(135deg, #8A4B2C, #b56440)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      margin: '0 auto 1.5rem',
+      boxShadow: '0 8px 24px rgba(138,75,44,0.3)',
+    }}>
+      <svg width="36" height="36" viewBox="0 0 24 24" fill="none"
+           stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M4 6h16v12H4z"/>
+        <polyline points="4,7 12,13 20,7"/>
+      </svg>
+    </div>
+    <div style={{
+      fontFamily: "'Playfair Display', serif",
+      fontSize: '1.75rem', fontWeight: 700,
+      color: '#2C1A0E', marginBottom: '0.5rem',
+    }}>
+      Confirm your email
+    </div>
+    <div style={{ fontSize: '0.9rem', color: '#8A7060', marginBottom: '2rem', lineHeight: 1.6 }}>
+      We sent a confirmation link to <strong>{email}</strong>.<br />
+      Open it to activate your account, then sign in.
+    </div>
+    <button className="btn-primary" onClick={() => onSwitch('login')}>
+      Go to Login
+    </button>
+  </div>
+);
+
 // ── Main Component ───────────────────────────────────────────────────────────
 export default function RegisterPage({ onSwitch, onSuccess }: RegisterPageProps) {
-  const [state, setState] = useState<RegisterState>({
+  const [values, setValues] = useState<RegisterValues>({
     username: '', fullname: '', email: '', password: '', confirmPassword: '',
-    fieldErrors: {}, serverError: '', loading: false, registered: false, registeredUser: null,
   });
+  const [status, setStatus] = useState<RegisterStatus>({ status: 'idle' });
 
-  const update = (partial: Partial<RegisterState>) => setState(p => ({ ...p, ...partial }));
+  const fieldErrors = status.status === 'invalid' ? status.fieldErrors : {};
+  const serverError = status.status === 'failed' ? status.message : '';
 
+  const update = (partial: Partial<RegisterValues>) =>
+    setValues(v => ({ ...v, ...partial }));
+
+  /** Clear the error for one field as the user types into it. */
   const clearField = (field: string) => {
-    update({ fieldErrors: { ...state.fieldErrors, [field]: '' }, serverError: '' });
+    setStatus(s => {
+      if (s.status !== 'invalid') return s;
+      const next: FieldErrors = { ...s.fieldErrors };
+      delete next[field];
+      return Object.keys(next).length > 0
+        ? { status: 'invalid', fieldErrors: next }
+        : { status: 'idle' };
+    });
   };
 
   const handleSubmit = async (): Promise<void> => {
-    update({ loading: true, serverError: '', fieldErrors: {} });
+    setStatus({ status: 'submitting' });
 
     try {
-      const user = await registerUser(state.username, state.fullname, state.email, state.password, state.confirmPassword);
-      update({ registeredUser: user, registered: true, loading: false });
-    } catch (err) {
-      const authErr = err as AuthError;
-      switch (authErr.type) {
-        case 'VALIDATION_ERROR':
-          update({ fieldErrors: authErr.fieldErrors ?? {}, loading: false });
-          break;
-        case 'PASSWORD_MISMATCH':
-          update({ fieldErrors: { confirmPassword: 'Passwords do not match' }, loading: false });
-          break;
-        case 'USERNAME_TAKEN':
-          update({ fieldErrors: { username: authErr.message }, loading: false });
-          break;
-        case 'USER_ALREADY_EXISTS':
-          update({ serverError: authErr.message, loading: false });
-          break;
-        default:
-          update({ serverError: 'A server error occurred. Please try again later.', loading: false });
-          break;
+      const outcome = await registerUser(
+        values.username, values.fullname, values.email,
+        values.password, values.confirmPassword,
+      );
+
+      if (outcome.status === 'pending-confirmation') {
+        setStatus({ status: 'pending-confirmation', email: outcome.email });
+      } else {
+        setStatus({ status: 'confirmed', user: outcome.user });
       }
+    } catch (err) {
+      const failure = describeAuthError(err as AuthError);
+      setStatus(
+        failure.kind === 'fields'
+          ? { status: 'invalid', fieldErrors: failure.fieldErrors }
+          : { status: 'failed', message: failure.message },
+      );
     }
   };
 
@@ -271,41 +325,53 @@ export default function RegisterPage({ onSwitch, onSuccess }: RegisterPageProps)
     if (e.key === 'Enter') handleSubmit();
   };
 
-  // Success Screen
-  if (state.registered && state.registeredUser) {
+  // ── Success Screen ─────────────────────────────────────────────────────────
+  if (status.status === 'confirmed') {
     return (
       <div className="auth-container">
         <LeftPanel />
         <div className="right-panel">
-          <SuccessView user={state.registeredUser} onSuccess={onSuccess} onSwitch={onSwitch} />
+          <SuccessView user={status.user} onSuccess={onSuccess} onSwitch={onSwitch} />
         </div>
       </div>
     );
   }
 
-  // Register Form
+  // ── Pending confirmation Screen ────────────────────────────────────────────
+  if (status.status === 'pending-confirmation') {
+    return (
+      <div className="auth-container">
+        <LeftPanel />
+        <div className="right-panel">
+          <PendingConfirmationView email={status.email} onSwitch={onSwitch} />
+        </div>
+      </div>
+    );
+  }
+
+  // ── Register Form ──────────────────────────────────────────────────────────
   return (
     <div className="auth-container">
       <LeftPanel />
       <div className="right-panel">
         <div className="form-card fade-in" onKeyDown={handleKeyDown}>
           <FormHeader />
-          <ErrorBanner error={state.serverError} />
+          <ErrorBanner error={serverError} />
           <TextInputs
-            email={state.email} setEmail={v => update({ email: v })}
-            username={state.username} setUsername={v => update({ username: v })}
-            fullname={state.fullname} setFullname={v => update({ fullname: v })}
-            fieldErrors={state.fieldErrors} clearField={clearField}
+            email={values.email} setEmail={v => update({ email: v })}
+            username={values.username} setUsername={v => update({ username: v })}
+            fullname={values.fullname} setFullname={v => update({ fullname: v })}
+            fieldErrors={fieldErrors} clearField={clearField}
           />
           <PasswordInput
-            password={state.password} setPassword={v => update({ password: v })}
-            fieldErrors={state.fieldErrors} clearField={clearField}
+            password={values.password} setPassword={v => update({ password: v })}
+            fieldErrors={fieldErrors} clearField={clearField}
           />
           <ConfirmPasswordInput
-            value={state.confirmPassword} onChange={v => update({ confirmPassword: v })}
-            error={state.fieldErrors.confirmPassword} clearField={clearField}
+            value={values.confirmPassword} onChange={v => update({ confirmPassword: v })}
+            error={fieldErrors.confirmPassword} clearField={clearField}
           />
-          <SubmitButton loading={state.loading} onClick={handleSubmit} />
+          <SubmitButton loading={status.status === 'submitting'} onClick={handleSubmit} />
           <Footer onSwitch={onSwitch} />
         </div>
       </div>

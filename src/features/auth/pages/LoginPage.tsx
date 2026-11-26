@@ -4,6 +4,8 @@ import { AuthMode } from '../types/auth';
 import FormInput from '../components/FormInput';
 import LeftPanel from '../components/LeftPanel';
 import { loginUser, AuthError, AuthUser } from '../services/authService';
+import { FormStatus, isSubmitting } from '../machines/formStatus';
+import { describeAuthError } from '../machines/authErrors';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 interface LoginPageProps {
@@ -12,12 +14,9 @@ interface LoginPageProps {
   onForgotPassword: () => void;
 }
 
-interface LoginState {
+interface LoginValues {
   email: string;
   password: string;
-  fieldErrors: Record<string, string>;
-  serverError: string;
-  loading: boolean;
 }
 
 // ── Slice 1: Form Header ─────────────────────────────────────────────────────
@@ -114,41 +113,35 @@ const Footer = ({ onSwitch }: FooterProps) => (
 
 // ── Main Component ───────────────────────────────────────────────────────────
 export default function LoginPage({ onSwitch, onSuccess, onForgotPassword }: LoginPageProps) {
-  const [state, setState] = useState<LoginState>({
-    email: '', password: '', fieldErrors: {}, serverError: '', loading: false,
-  });
+  const [values, setValues] = useState<LoginValues>({ email: '', password: '' });
+  const [status, setStatus] = useState<FormStatus>({ status: 'idle' });
 
-  const update = (partial: Partial<LoginState>) => setState(p => ({ ...p, ...partial }));
+  const fieldErrors = status.status === 'invalid' ? status.fieldErrors : {};
+  const serverError = status.status === 'failed' ? status.message : '';
 
-  // Clear field error when user types
   const handleEmailChange = (val: string) => {
-    update({ email: val, fieldErrors: { ...state.fieldErrors, email: '' }, serverError: '' });
+    setValues(v => ({ ...v, email: val }));
+    setStatus(s => (s.status === 'invalid' ? { status: 'idle' } : s));
   };
 
   const handlePasswordChange = (val: string) => {
-    update({ password: val, fieldErrors: { ...state.fieldErrors, password: '' }, serverError: '' });
+    setValues(v => ({ ...v, password: val }));
+    setStatus(s => (s.status === 'invalid' ? { status: 'idle' } : s));
   };
 
   const handleSubmit = async (): Promise<void> => {
-    update({ loading: true, serverError: '', fieldErrors: {} });
+    setStatus({ status: 'submitting' });
 
     try {
-      const user = await loginUser(state.email, state.password);
+      const user = await loginUser(values.email, values.password);
       onSuccess(user);
     } catch (err) {
-      const authErr = err as AuthError;
-      switch (authErr.type) {
-        case 'VALIDATION_ERROR':
-          update({ fieldErrors: authErr.fieldErrors ?? {}, loading: false });
-          break;
-        case 'INVALID_CREDENTIALS':
-          update({ serverError: 'Invalid email or password. Please check your credentials and try again.', loading: false });
-          break;
-        case 'SERVER_ERROR':
-        default:
-          update({ serverError: 'A server error occurred. Please try again later.', loading: false });
-          break;
-      }
+      const failure = describeAuthError(err as AuthError);
+      setStatus(
+        failure.kind === 'fields'
+          ? { status: 'invalid', fieldErrors: failure.fieldErrors }
+          : { status: 'failed', message: failure.message },
+      );
     }
   };
 
@@ -162,19 +155,19 @@ export default function LoginPage({ onSwitch, onSuccess, onForgotPassword }: Log
       <div className="right-panel">
         <div className="form-card fade-in" onKeyDown={handleKeyDown}>
           <FormHeader />
-          <ErrorBanner error={state.serverError} />
+          <ErrorBanner error={serverError} />
           <EmailInput
-            value={state.email}
+            value={values.email}
             onChange={handleEmailChange}
-            error={state.fieldErrors.email}
+            error={fieldErrors.email}
           />
           <PasswordInput
-            value={state.password}
+            value={values.password}
             onChange={handlePasswordChange}
-            error={state.fieldErrors.password}
+            error={fieldErrors.password}
             onForgotPassword={onForgotPassword}
           />
-          <SubmitButton loading={state.loading} onClick={handleSubmit} />
+          <SubmitButton loading={isSubmitting(status)} onClick={handleSubmit} />
           <Footer onSwitch={onSwitch} />
         </div>
       </div>

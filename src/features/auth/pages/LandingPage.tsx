@@ -385,11 +385,6 @@ const styles = `
     color: var(--muted);
   }
 
-  .map-card-rating {
-    color: #F5A623;
-    font-weight: 600;
-  }
-
   .map-card-badge {
     background: #EDFAF3;
     color: #2C7A4B;
@@ -504,15 +499,6 @@ const styles = `
   }
 
   .feature-card:hover::before { opacity: 1; }
-
-  .feature-icon {
-    width: 44px; height: 44px;
-    border-radius: 10px;
-    background: rgba(184,92,56,0.15);
-    display: flex; align-items: center; justify-content: center;
-    margin-bottom: 1.25rem;
-    font-size: 1.25rem;
-  }
 
   .feature-title {
     font-family: 'Playfair Display', serif;
@@ -646,7 +632,7 @@ const ROADS_V = ['35%', '60%', '82%'];
 
 const FEATURES = [
   { title: 'Find Nearby Places',    desc: 'Instantly discover cafes and restaurants within your area using real-time GPS location.' },
-  { title: 'Reviews & Ratings',      desc: 'Read honest reviews from real users and share your own experience to help others.' },
+  { title: 'Your Profile',          desc: 'Keep your account details and password up to date from your own profile page.' },
   { title: 'Save Favorites',         desc: 'Bookmark your favorite spots for quick access anytime, anywhere.' },
   { title: 'Interactive Map',        desc: 'Explore your neighborhood visually with an interactive pin map showing all nearby spots.' },
   { title: 'Search & Filter',        desc: 'Filter by cafes, restaurants, or bars and search by name to find exactly what you want.' },
@@ -654,10 +640,9 @@ const FEATURES = [
 ];
 
 const STATS = [
-  { num: '200+', label: 'Places Listed' },
-  { num: '4.8★', label: 'Avg. Rating'   },
-  { num: '50+',  label: 'Cafes & Bars'  },
-  { num: '100%', label: 'Free to Use'   },
+  { num: 'GPS',  label: 'Nearby Search' },
+  { num: 'Map',  label: 'Interactive View' },
+  { num: 'Free', label: 'To Use' },
 ];
 
 // ── Slice 1: Navbar ──────────────────────────────────────────────────────────
@@ -685,8 +670,9 @@ const HeroSection = ({ onLogin, onRegister }: LandingPageProps) => (
         <span className="accent-line">near you.</span>
       </h1>
       <p className="hero-sub">
-        AratKain helps you find the best cafes, restaurants, and bars
-        around you — with real reviews, live hours, and an interactive map.
+        AratKain helps you find the cafes, restaurants, and bars
+        around you — with an interactive map, instant search, and
+        places sorted by what's nearby.
       </p>
       <div className="hero-actions">
         <button className="btn-hero-primary" onClick={onRegister}>
@@ -720,10 +706,8 @@ const MapVisual = () => (
         </div>
       ))}
       <div className="map-card" style={{ bottom: '14%', left: '8%' }}>
-        <div className="map-card-name">Burnham Brew ☕</div>
+        <div className="map-card-name">Burnham Brew</div>
         <div className="map-card-meta">
-          <span className="map-card-rating">★ 4.8</span>
-          <span>·</span>
           <span>200m away</span>
           <span className="map-card-badge">Open</span>
         </div>

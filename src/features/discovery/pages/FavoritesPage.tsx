@@ -1,56 +1,29 @@
 import { useEffect, useState } from "react";
-import { supabase } from "../services/supabaseClient";
+import { supabase } from "../../auth/services/supabaseClient";
+import { AuthUser } from "../../auth/services/authService";
+import { Icon, TYPE_ICON } from "../components/Icon";
+import Sidebar from "../components/Sidebar";
+import { SIDEBAR_STYLES } from "../styles/sidebar";
+import {
+  Spot,
+  SpotTypeFilter,
+  TYPE_GRADIENT,
+  TYPE_LABEL,
+  toSpots,
+} from "../domain/spot";
+import { DiscoveryNav } from "../machines/discovery";
 
 // ── Types ──────────────────────────────────────────────────────
-interface Spot {
-  id:          number;
-  name:        string;
-  type:        "cafe" | "restaurant" | "bar";
-  rating:      number;
-  reviewCount: number;
-  distance:    string;
-  isOpen:      boolean;
-  lat:         number;
-  lng:         number;
-  address:     string;
-  description: string;
-  phone:       string;
-}
-
 interface FavoritesPageProps {
-  user:              { id: string; email: string; username: string; fullname: string };
-  favorites:         Set<number>;
-  onBack:            () => void;
-  onViewOnMap:       (spot: Spot) => void;
-  onToggleFavorite:  (spot: Spot) => void;
-  onLogout:          () => void;
-  onProfile:         () => void;
+  user:             AuthUser;
+  favorites:        Set<number>;
+  onNavigate:       (nav: DiscoveryNav) => void;
+  onViewOnMap:      (spot: Spot) => void;
+  onToggleFavorite: (spot: Spot) => void;
+  onLogout:         () => void;
 }
 
 const BASE_URL = "";
-
-const TYPE_EMOJI: Record<string, string> = {
-  cafe: "☕", restaurant: "🍽️", bar: "🍸",
-};
-const TYPE_GRADIENT: Record<string, string> = {
-  cafe:       "linear-gradient(135deg, #3D1C08 0%, #8B4513 50%, #C56A3D 100%)",
-  restaurant: "linear-gradient(135deg, #1A2744 0%, #2C3E6B 50%, #4A6FA5 100%)",
-  bar:        "linear-gradient(135deg, #2D1B4E 0%, #6B3FA0 50%, #9B6FD0 100%)",
-};
-
-// ── Icons ──────────────────────────────────────────────────────
-const Icon = {
-  Food:           () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><line x1="7" y1="2" x2="7" y2="22"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3zm0 0v7"/></svg>,
-  Bookmark:       () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>,
-  BookmarkFilled: () => <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>,
-  User:           () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
-  Star:           () => <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>,
-  MapPin:         () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>,
-  Navigate:       () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>,
-  ArrowLeft:      () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="15 18 9 12 15 6"/></svg>,
-  Logout:         () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>,
-  Trash:          () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>,
-};
 
 // ── Styles ─────────────────────────────────────────────────────
 const styles = `
@@ -72,59 +45,6 @@ const styles = `
 
   /* ── Layout ── */
   .fav-container { display: flex; height: 100vh; width: 100vw; overflow: hidden; }
-
-  /* ── Sidebar ── */
-  .sidebar {
-    width: var(--sidebar-w); height: 100%;
-    background: linear-gradient(180deg, #1E1208 0%, #2C1A0E 100%);
-    display: flex; flex-direction: column; align-items: center;
-    padding: 1.25rem 0; z-index: 1000; flex-shrink: 0;
-    box-shadow: 4px 0 24px rgba(30,18,8,0.4);
-  }
-  .sidebar-brand {
-    display: flex; flex-direction: column; align-items: center;
-    gap: 4px; padding-bottom: 1.25rem; width: 100%;
-    border-bottom: 1px solid rgba(200,169,126,0.12);
-  }
-  .brand-mark {
-    width: 38px; height: 38px; border-radius: 10px;
-    background: linear-gradient(135deg, var(--accent), #E8845A);
-    display: flex; align-items: center; justify-content: center;
-    font-family: 'Playfair Display', serif; font-size: 1rem;
-    font-weight: 900; color: white; letter-spacing: -0.03em;
-    box-shadow: 0 4px 12px rgba(197,106,61,0.4);
-  }
-  .brand-name {
-    font-family: 'Playfair Display', serif; font-size: 0.6rem;
-    font-weight: 700; color: var(--latte); letter-spacing: 0.15em;
-    text-transform: uppercase;
-  }
-  .sidebar-nav { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; padding-top: 1rem; }
-  .nav-btn {
-    width: 46px; height: 46px; border-radius: 13px; border: none;
-    background: transparent; color: rgba(200,169,126,0.4); cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-    transition: all 0.2s ease; position: relative;
-  }
-  .nav-btn:hover { background: rgba(200,169,126,0.1); color: var(--latte); transform: translateX(2px); }
-  .nav-btn.active { background: rgba(197,106,61,0.2); color: var(--accent); }
-  .nav-btn.active::before {
-    content: ''; position: absolute; left: -1px; top: 50%;
-    transform: translateY(-50%); width: 3px; height: 22px;
-    border-radius: 0 3px 3px 0; background: var(--accent);
-  }
-  .nav-btn svg { width: 20px; height: 20px; stroke-width: 1.8; }
-  .sidebar-bottom { display: flex; flex-direction: column; align-items: center; gap: 6px; padding-bottom: 0.75rem; }
-  .logout-btn {
-    width: 46px; height: 46px; border-radius: 13px;
-    border: 1px solid rgba(197,106,61,0.2); background: transparent;
-    color: rgba(197,106,61,0.5); cursor: pointer;
-    display: flex; flex-direction: column; align-items: center;
-    justify-content: center; gap: 3px; transition: all 0.2s ease;
-  }
-  .logout-btn:hover { background: rgba(197,106,61,0.12); color: var(--accent); border-color: rgba(197,106,61,0.4); }
-  .logout-btn svg { width: 18px; height: 18px; stroke-width: 1.8; }
-  .logout-btn span { font-size: 0.4rem; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; }
 
   /* ── Main content ── */
   .fav-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: var(--cream); }
@@ -164,8 +84,11 @@ const styles = `
   .fav-breadcrumb svg { width: 10px; height: 10px; }
 
   .fav-title {
-    font-family: 'Playfair Display', serif; font-size: 1.75rem;
-    font-weight: 700; color: var(--espresso); line-height: 1.1;
+    font-family: 'Playfair Display', serif;
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--espresso);
+    line-height: 1.1;
   }
   .fav-subtitle { font-size: 0.8rem; color: var(--muted); margin-top: 5px; }
 
@@ -190,7 +113,9 @@ const styles = `
     width: 30px; height: 30px;
     border-radius: 8px;
     background: var(--espresso);
-    display: flex; align-items: center; justify-content: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
   .fav-stat-pill-icon svg { width: 14px; height: 14px; color: var(--latte); stroke-width: 1.8; }
 
@@ -288,12 +213,13 @@ const styles = `
     overflow: hidden;
   }
 
-  .fav-card-image-emoji {
-    font-size: 3.5rem;
+  .fav-card-image-icon {
     position: relative;
     z-index: 1;
-    filter: drop-shadow(0 4px 12px rgba(0,0,0,0.3));
+    color: white;
+    display: flex;
   }
+  .fav-card-image-icon svg { width: 56px; height: 56px; }
 
   .fav-card-image-overlay {
     position: absolute;
@@ -326,14 +252,18 @@ const styles = `
     border-radius: 20px;
     z-index: 2;
   }
-  .fav-card-open-badge.open  { background: rgba(26,122,74,0.85); color: white; }
+  .fav-card-open-badge.open   { background: rgba(26,122,74,0.85); color: white; }
   .fav-card-open-badge.closed { background: rgba(0,0,0,0.45); color: rgba(255,255,255,0.7); }
+  .fav-card-open-badge.unknown { background: rgba(138,90,32,0.85); color: white; }
 
   .fav-card-body { padding: 16px 18px 18px; flex: 1; display: flex; flex-direction: column; }
 
   .fav-card-name {
-    font-family: 'Playfair Display', serif; font-size: 1.05rem;
-    font-weight: 700; color: var(--espresso); line-height: 1.25;
+    font-family: 'Playfair Display', serif;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--espresso);
+    line-height: 1.25;
     margin-bottom: 8px;
   }
 
@@ -377,14 +307,15 @@ const styles = `
   .fav-empty-icon {
     width: 88px; height: 88px; border-radius: 24px;
     background: var(--steam);
-    display: flex; align-items: center;
-    justify-content: center; margin-bottom: 24px;
+    display: flex;
+    align-items: center; justify-content: center; margin-bottom: 24px;
     box-shadow: 0 4px 20px rgba(30,18,8,0.08);
   }
   .fav-empty-icon svg { width: 40px; height: 40px; color: var(--muted); stroke-width: 1.4; }
   .fav-empty-title {
-    font-family: 'Playfair Display', serif; font-size: 1.4rem;
-    font-weight: 700; color: var(--espresso); margin-bottom: 10px;
+    font-family: 'Playfair Display', serif;
+    font-size: 1.4rem; font-weight: 700; color: var(--espresso);
+    margin-bottom: 10px;
   }
   .fav-empty-text {
     font-size: 0.86rem; color: var(--muted);
@@ -404,12 +335,12 @@ const styles = `
 
 // ── Component ──────────────────────────────────────────────────
 export default function FavoritesPage({
-  user, favorites, onBack, onViewOnMap, onToggleFavorite, onLogout, onProfile,
+  user, favorites, onNavigate, onViewOnMap, onToggleFavorite, onLogout,
 }: FavoritesPageProps) {
   const [spots,      setSpots]      = useState<Spot[]>([]);
   const [loading,    setLoading]    = useState(true);
   const [loggingOut, setLoggingOut] = useState(false);
-  const [activeFilter, setActiveFilter] = useState<"all" | "cafe" | "restaurant" | "bar">("all");
+  const [activeFilter, setActiveFilter] = useState<SpotTypeFilter>("all");
 
   // Re-fetch whenever the favorites set changes
   useEffect(() => {
@@ -429,23 +360,7 @@ export default function FavoritesPage({
             .catch(() => null)
         )
       );
-      const mapped: Spot[] = results
-        .filter(Boolean)
-        .map(e => ({
-          id:          e.establishmentId,
-          name:        e.name,
-          type:        (e.estabType || "cafe") as "cafe" | "restaurant" | "bar",
-          rating:      e.averageRating  || 0,
-          reviewCount: e.reviewCount    || 0,
-          distance:    "",
-          isOpen:      e.isOpen !== false,
-          lat:         e.latitude,
-          lng:         e.longitude,
-          address:     e.address     || "",
-          description: e.description || "",
-          phone:       e.phone       || "",
-        }));
-      setSpots(mapped);
+      setSpots(toSpots(results.filter(Boolean)));
     } catch {
       setSpots([]);
     } finally {
@@ -459,41 +374,29 @@ export default function FavoritesPage({
     onLogout();
   };
 
-  const openCount   = spots.filter(s => s.isOpen).length;
+  const openCount   = spots.filter(s => s.openState === "open").length;
   const cafeCount   = spots.filter(s => s.type === "cafe").length;
   const restCount   = spots.filter(s => s.type === "restaurant").length;
   const barCount    = spots.filter(s => s.type === "bar").length;
   const filteredSpots = activeFilter === "all" ? spots : spots.filter(s => s.type === activeFilter);
 
+  const filterLabels: Record<SpotTypeFilter, string> = {
+    all: "All Places", cafe: "Cafés", restaurant: "Restaurants", bar: "Bars",
+  };
+
   return (
     <>
       <style>{styles}</style>
+      <style>{SIDEBAR_STYLES}</style>
       <div className="fav-container">
 
         {/* ── Sidebar ── */}
-        <aside className="sidebar">
-          <div className="sidebar-brand">
-            <div className="brand-mark">AK</div>
-            <span className="brand-name">AratKain</span>
-          </div>
-          <nav className="sidebar-nav">
-            <button className="nav-btn" onClick={onBack} title="Discover">
-              <Icon.Food/>
-            </button>
-            <button className="nav-btn active" title="Saved">
-              <Icon.Bookmark/>
-            </button>
-            <button className="nav-btn" onClick={onProfile} title="Profile">
-              <Icon.User/>
-            </button>
-          </nav>
-          <div className="sidebar-bottom">
-            <button className="logout-btn" onClick={handleLogout} disabled={loggingOut} title="Log out">
-              <Icon.Logout/>
-              <span>{loggingOut ? "..." : "Out"}</span>
-            </button>
-          </div>
-        </aside>
+        <Sidebar
+          active="saved"
+          onNavigate={onNavigate}
+          onLogout={handleLogout}
+          loggingOut={loggingOut}
+        />
 
         {/* ── Main ── */}
         <div className="fav-main">
@@ -552,14 +455,13 @@ export default function FavoritesPage({
             <div className="fav-filter-bar">
               {(["all", "cafe", "restaurant", "bar"] as const).map(tab => {
                 const count = tab === "all" ? spots.length : tab === "cafe" ? cafeCount : tab === "restaurant" ? restCount : barCount;
-                const labels: Record<string, string> = { all: "All Places", cafe: "Cafés", restaurant: "Restaurants", bar: "Bars" };
                 return (
                   <button
                     key={tab}
                     className={`fav-filter-tab ${activeFilter === tab ? "active" : ""}`}
                     onClick={() => setActiveFilter(tab)}
                   >
-                    {labels[tab]}
+                    {filterLabels[tab]}
                     <span className="fav-filter-count">{count}</span>
                   </button>
                 );
@@ -601,11 +503,11 @@ export default function FavoritesPage({
                 {filteredSpots.map(spot => (
                   <div key={spot.id} className="fav-card">
                     <div className="fav-card-image" style={{background: TYPE_GRADIENT[spot.type]}}>
-                      <span className="fav-card-image-emoji">{TYPE_EMOJI[spot.type]}</span>
+                      <span className="fav-card-image-icon">{TYPE_ICON[spot.type]()}</span>
                       <div className="fav-card-image-overlay"/>
-                      <span className="fav-card-type-badge">{spot.type}</span>
-                      <span className={`fav-card-open-badge ${spot.isOpen ? "open" : "closed"}`}>
-                        {spot.isOpen ? "● Open" : "Closed"}
+                      <span className="fav-card-type-badge">{TYPE_LABEL[spot.type]}</span>
+                      <span className={`fav-card-open-badge ${spot.openState}`}>
+                        {spot.openState === "open" ? "● Open" : spot.openState === "closed" ? "Closed" : "Hours unknown"}
                       </span>
                     </div>
                     <div className="fav-card-body">

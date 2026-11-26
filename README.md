@@ -1,191 +1,105 @@
-# AratKain ☕🍽️
+# AratKain (web)
 
-**AratKain** is a web-based cafe and restaurant navigator that helps users easily find nearby cafes and restaurants. The application allows users to explore dining options, view locations, and manage their personal accounts.
+AratKain is a cafe and restaurant navigator. This folder contains the React
+web client: it uses Supabase for authentication and saved places, and a Spring
+Boot API for the establishment catalogue and nearby search.
 
-## 📌 Project Description
+The other clients live in [`../AratKain-Backend/`](../AratKain-Backend/) and
+[`../AratKain-Android/`](../AratKain-Android/).
 
-AratKain is designed to make it easier for users to discover places to eat around them. The platform provides a simple and intuitive interface where users can search for nearby cafes and restaurants, save their favorite locations, and manage their profiles.
+## Features
 
-This system is built as a **web application** with a modern frontend and a scalable backend architecture.
+- Sign up, log in, and reset a password through Supabase Auth
+- Browse the establishment catalogue and find nearby places on a Leaflet map
+- Search real cafes, restaurants and bars from OpenStreetMap; results are saved locally so you can favorite them
+- See place type, rating, distance, and opening status when the API provides them
+- Save and unsave places (stored in the shared Supabase `favorites` table)
+- Edit username, full name, and profile photo
 
-## 🚀 Features
+## Stack
 
-- User registration and login
-- Browse nearby cafes and restaurants
-- Save favorite restaurants
-- Update user profile
-- Location-based restaurant discovery
-- Secure authentication system
-- Responsive web interface
+React 19, TypeScript, Leaflet, and Supabase JS on the frontend; Spring Boot on
+the backend. The app is built with Create React App (`react-scripts`).
 
-## 🛠️ Technologies Used
+## Project structure
 
-### Frontend
-- **TypeScript**
-- HTML
-- CSS
-- JavaScript
-
-### Backend
-- **Java**
-- **Maven**
-- REST API
-
-### Tools
-- Git & GitHub
-- Visual Studio Code
-- Maven Build Tool
-
-## 📂 Project Structure
-aratkain/
-│
-├── frontend/ # Frontend source code (TypeScript)
-│
-├── backend/ # Java Maven backend application
-│
-├── README.md
-│
-└── docs/ # Project documentation (if applicable)
-
-## ⚙️ Installation and Setup
-
-### 1️⃣ Clone the repository
-
-```bash
-git clone https://github.com/yourusername/aratkain.git
-cd aratkain
-
-## ⚙️ Installation and Setup
-
-### 1️⃣ Clone the repository
-
-```bash
-git clone https://github.com/yourusername/aratkain.git
-cd aratkain
-2️⃣ Setup the Backend (Java Maven)
-
-Navigate to the backend folder:
-
-cd backend
-
-Build the project using Maven:
-
-mvn clean install
-
-Run the backend server:
-
-mvn spring-boot:run
-3️⃣ Setup the Frontend
-
-Navigate to the frontend folder:
-
-cd frontend
-
-Install dependencies:
-
-npm install
-
-Run the development server:
-
-npm run dev
-📸 System Modules
-
-Authentication Module
-
-Restaurant & Cafe Locator
-
-Favorites Management
-
-User Profile Management
-
-Location Services
-
-🎯 Purpose of the Project
-
-This project was developed as part of an academic requirement to demonstrate the use of modern web development technologies, combining a TypeScript frontend with a Java Maven backend to create a functional location-based restaurant discovery system.
-
-👨‍💻 Developers
-
-Developed by students of the Bachelor of Science in Information Technology (BSIT).
-
-📄 License
-
-This project is for educational purposes only.
-
-
-✅ This README is **good enough for a college project** and looks professional on GitHub.
-
-If you want, I can also help you add these to make it **even better for GitHub**:
-- **system architecture diagram**
-- **API documentation section**
-- **screenshots section**
-- **deployment instructions** (this makes projects look more professional).
-aratkain-backend/
-│
-├── src/
-│   ├── main/
-│   │   ├── java/com/aratkain/
-│   │   │   ├── config/         # Security configuration
-│   │   │   ├── controller/     # REST controllers
-│   │   │   ├── dto/            # Data Transfer Objects
-│   │   │   ├── entity/         # Database entities
-│   │   │   ├── exception/      # Exception handling
-│   │   │   ├── repository/     # Data repositories
-│   │   │   ├── security/       # JWT filter and utilities
-│   │   │   └── service/        # Business logic
-│   │   └── resources/
-│   │       └── application.properties
-│   └── test/
-│
-├── pom.xml
-└── README.md
-## ⚙️ Installation and Setup
-
-### 1️⃣ Prerequisites
-
-- Java 17+
-- Maven 3.8+
-
-### 2️⃣ Clone the repository
-
-```bash
-git clone https://github.com/Mikol-0519/AratKain-Backend.git
-cd AratKain-Backend
+```
+src/
+├── features/
+│   ├── auth/           # landing, login, register, profile, reset-password
+│   │   ├── components/ # shared auth UI
+│   │   ├── machines/   # auth state machines
+│   │   ├── pages/      # screens
+│   │   ├── services/   # Supabase client and auth calls
+│   │   ├── styles/     # auth styles
+│   │   ├── types/      # shared types
+│   │   └── utils/      # password policy
+│   └── discovery/      # map, place list, favourites, profile
+│       ├── components/ # icons, cards, sidebar
+│       ├── domain/     # place types and helpers
+│       ├── machines/   # discovery state machines
+│       ├── pages/      # screens
+│       └── styles/     # discovery styles
+├── setupProxy.js       # /api -> localhost:8080 in development
+└── index.tsx
 ```
 
-### 3️⃣ Configure application properties
+Every screen is modelled as an explicit, typed state machine. See
+[`../STATE-MACHINES.md`](../STATE-MACHINES.md) for the index of states and
+transitions across all three clients.
 
-Edit `src/main/resources/application.properties` with your database and JWT settings:
+## Setup
 
-```properties
-spring.datasource.url=your_database_url
-spring.datasource.username=your_username
-spring.datasource.password=your_password
-jwt.secret=your_jwt_secret
-```
+Prerequisites: Node.js with npm, Java 17+, and Maven 3.8+ for the backend.
 
-### 4️⃣ Build and Run
+1. Install dependencies in this folder:
+
+   ```bash
+   npm install
+   ```
+
+2. Set the Supabase values in `.env`:
+
+   ```properties
+   REACT_APP_SUPABASE_URL=your_project_url
+   REACT_APP_SUPABASE_ANON_KEY=your_anon_key
+   ```
+
+3. Run `../AratKain-Backend/sql/migrations/003_establishments_osm_id.sql` in
+   the Supabase SQL Editor. Search imports real OpenStreetMap places and needs
+   that column to avoid importing the same place twice.
+
+4. Start the backend from `../AratKain-Backend/` so the catalogue, search and
+   nearby endpoints are available on port 8080:
+
+   ```bash
+   mvn spring-boot:run
+   ```
+
+5. Run the web app:
+
+   ```bash
+   npm start
+   ```
+
+   The dev server proxies `/api` requests to `http://localhost:8080` through
+   `src/setupProxy.js`. See [`../LOCALDEV.md`](../LOCALDEV.md) for the shared
+   local-development setup, including the Docker Compose option.
+
+## Checks
 
 ```bash
-mvn clean install
-mvn spring-boot:run
+npm test              # unit tests (CI=true for a single non-watch run)
+npx tsc --noEmit      # type check
+npm run build         # production build
 ```
 
-The server will start at `http://localhost:8080`.
+## Documentation
 
-## 📸 API Modules
+- [`../STATE-MACHINES.md`](../STATE-MACHINES.md) — state machines across the three clients
+- [`../SECURITY.md`](../SECURITY.md) — Supabase configuration and the removed password-reset RPC
+- [`../LOCALDEV.md`](../LOCALDEV.md) — local URLs, environment values, and emulator paths
 
-- **Auth Module** — Register, Login, JWT token management
-- **Establishment Module** — Cafe and restaurant data
-- **Profile Module** — User profile management
+## License
 
-## 🎯 Purpose of the Project
-
-This backend was developed as part of an academic requirement, demonstrating the use of Java Spring Boot to build a secure and scalable REST API for a location-based restaurant discovery system.
-
-## 👨‍💻 Developers
-
-Mikel Josh A. Nicer
-
-## 📄 License
-
+For educational use.

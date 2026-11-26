@@ -1,48 +1,52 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo, type ReactElement } from "react";
 import ProfilePage from './ProfilePage';
-import FavoritesPage from "./FavoritesPage";
-import { supabase } from '../services/supabaseClient';
+import FavoritesPage from './FavoritesPage';
+import { supabase } from '../../auth/services/supabaseClient';
+import { AuthUser } from '../../auth/services/authService';
+import { Icon, TYPE_ICON, typeGlyphMarkup } from '../components/Icon';
+import Sidebar from '../components/Sidebar';
+import { SIDEBAR_STYLES } from '../styles/sidebar';
+import {
+  Spot,
+  SpotTypeFilter,
+  TYPE_COLOR,
+  TYPE_GRADIENT,
+  TYPE_LABEL,
+  toSpots,
+  sortSpots,
+  SpotSort,
+} from '../domain/spot';
+import {
+  DiscoveryNav,
+  SpotsState,
+  LocationState,
+  FavoritesState,
+  emptySpotsState,
+  emptyFavoritesState,
+  isFavoritePending,
+} from '../machines/discovery';
 
 // ── Types ─────────────────────────────────────────────────────
-interface Spot {
-  id:          number;
-  name:        string;
-  type:        "cafe" | "restaurant" | "bar";
-  rating:      number;
-  reviewCount: number;
-  distance:    string;
-  isOpen:      boolean;
-  lat:         number;
-  lng:         number;
-  address:     string;
-  description: string;
-  phone:       string;
-}
-
-type NavItem    = "food" | "saved" | "profile";
-type FilterType = "all" | "cafe" | "restaurant" | "bar";
-
 interface HomePageProps {
   onLogout:     () => void;
-  user:         { id: string; email: string; username: string; fullname: string };
-  onUserUpdate: (u: { id: string; email: string; username: string; fullname: string }) => void;
+  user:         AuthUser;
+  onUserUpdate: (u: AuthUser) => void;
 }
 
 const BASE_URL = "";
 
-const FILTERS: { id: FilterType; label: string; emoji: string }[] = [
-  { id: "all",        label: "All",         emoji: "🗺️" },
-  { id: "cafe",       label: "Cafes",       emoji: "☕" },
-  { id: "restaurant", label: "Restaurants", emoji: "🍽️" },
-  { id: "bar",        label: "Bars",        emoji: "🍸" },
+const FILTERS: { id: SpotTypeFilter; label: string; icon: ReactElement }[] = [
+  { id: "all",        label: "All",         icon: <Icon.MapPin /> },
+  { id: "cafe",       label: "Cafes",       icon: <TYPE_ICON.cafe /> },
+  { id: "restaurant", label: "Restaurants", icon: <TYPE_ICON.restaurant /> },
+  { id: "bar",        label: "Bars",        icon: <TYPE_ICON.bar /> },
 ];
 
-const TYPE_EMOJI: Record<string, string> = {
-  cafe: "☕", restaurant: "🍽️", bar: "🍸",
-};
-
-const TYPE_COLOR: Record<string, string> = {
-  cafe: "#C56A3D", restaurant: "#2C1A0E", bar: "#8B5CF6",
+const FILTER_TITLE: Record<SpotTypeFilter, string> = {
+  all: "Discover Places",
+  cafe: "Cafes",
+  restaurant: "Restaurants",
+  bar: "Bars",
 };
 
 // ── Styles ────────────────────────────────────────────────────
@@ -69,66 +73,6 @@ const styles = `
   /* ── Layout ── */
   .home-container { display: flex; height: 100vh; width: 100vw; overflow: hidden; }
 
-  /* ── Sidebar ── */
-  .sidebar {
-    width: var(--sidebar-w); height: 100%;
-    background: linear-gradient(180deg, #1E1208 0%, #2C1A0E 100%);
-    display: flex; flex-direction: column; align-items: center;
-    padding: 1.25rem 0; z-index: 1000; flex-shrink: 0;
-    box-shadow: 4px 0 24px rgba(30,18,8,0.4);
-  }
-
-  .sidebar-brand {
-    display: flex; flex-direction: column; align-items: center;
-    gap: 4px; padding-bottom: 1.25rem; width: 100%;
-    border-bottom: 1px solid rgba(200,169,126,0.12);
-  }
-
-  .brand-mark {
-    width: 38px; height: 38px; border-radius: 10px;
-    background: linear-gradient(135deg, var(--accent), #E8845A);
-    display: flex; align-items: center; justify-content: center;
-    font-family: 'Playfair Display', serif; font-size: 1rem;
-    font-weight: 900; color: white; letter-spacing: -0.03em;
-    box-shadow: 0 4px 12px rgba(197,106,61,0.4);
-  }
-
-  .brand-name {
-    font-family: 'Playfair Display', serif; font-size: 0.6rem;
-    font-weight: 700; color: var(--latte); letter-spacing: 0.15em;
-    text-transform: uppercase;
-  }
-
-  .sidebar-nav { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; padding-top: 1rem; }
-
-  .nav-btn {
-    width: 46px; height: 46px; border-radius: 13px; border: none;
-    background: transparent; color: rgba(200,169,126,0.4); cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-    transition: all 0.2s ease; position: relative;
-  }
-  .nav-btn:hover { background: rgba(200,169,126,0.1); color: var(--latte); transform: translateX(2px); }
-  .nav-btn.active { background: rgba(197,106,61,0.2); color: var(--accent); }
-  .nav-btn.active::before {
-    content: ''; position: absolute; left: -1px; top: 50%;
-    transform: translateY(-50%); width: 3px; height: 22px;
-    border-radius: 0 3px 3px 0; background: var(--accent);
-  }
-  .nav-btn svg { width: 20px; height: 20px; stroke-width: 1.8; }
-
-  .sidebar-bottom { display: flex; flex-direction: column; align-items: center; gap: 6px; padding-bottom: 0.75rem; }
-
-  .logout-btn {
-    width: 46px; height: 46px; border-radius: 13px;
-    border: 1px solid rgba(197,106,61,0.2); background: transparent;
-    color: rgba(197,106,61,0.5); cursor: pointer;
-    display: flex; flex-direction: column; align-items: center;
-    justify-content: center; gap: 3px; transition: all 0.2s ease;
-  }
-  .logout-btn:hover { background: rgba(197,106,61,0.12); color: var(--accent); border-color: rgba(197,106,61,0.4); }
-  .logout-btn svg { width: 18px; height: 18px; stroke-width: 1.8; }
-  .logout-btn span { font-size: 0.4rem; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; }
-
   /* ── Results Panel ── */
   .results-panel {
     width: 360px; height: 100%; background: var(--cream);
@@ -152,9 +96,9 @@ const styles = `
 
   .results-subtitle { font-size: 0.75rem; color: var(--muted); }
 
-  .results-list { 
-    flex: 1; 
-    overflow-y: auto; 
+  .results-list {
+    flex: 1;
+    overflow-y: auto;
     padding: 12px;
   }
   .results-list::-webkit-scrollbar { width: 4px; }
@@ -163,127 +107,128 @@ const styles = `
 
   /* ── Result Card - FIXED CONSISTENT SIZE ── */
   .result-card {
-    background: white; 
-    border-radius: 14px; 
+    background: white;
+    border-radius: 14px;
     padding: 14px;
-    margin-bottom: 10px; 
-    cursor: pointer; 
+    margin-bottom: 10px;
+    cursor: pointer;
     border: 1.5px solid transparent;
-    transition: all 0.2s ease; 
+    transition: all 0.2s ease;
     box-shadow: 0 2px 8px rgba(30,18,8,0.06);
     height: 130px;
-    display: flex; 
+    display: flex;
     flex-direction: column;
     justify-content: space-between;
   }
-  .result-card:hover { 
-    transform: translateY(-2px); 
-    box-shadow: 0 6px 20px rgba(30,18,8,0.1); 
-    border-color: var(--steam); 
+  .result-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(30,18,8,0.1);
+    border-color: var(--steam);
   }
-  .result-card.selected { 
-    border-color: var(--accent); 
-    box-shadow: 0 4px 16px rgba(197,106,61,0.15); 
+  .result-card.selected {
+    border-color: var(--accent);
+    box-shadow: 0 4px 16px rgba(197,106,61,0.15);
   }
 
-  .result-card-top { 
-    display: flex; 
-    align-items: flex-start; 
-    gap: 10px; 
+  .result-card-top {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
     margin-bottom: 8px;
     min-height: 44px;
   }
 
   .result-type-badge {
-    width: 36px; 
-    height: 36px; 
+    width: 36px;
+    height: 36px;
     border-radius: 10px;
-    display: flex; 
-    align-items: center; 
+    display: flex;
+    align-items: center;
     justify-content: center;
-    font-size: 1.1rem; 
+    font-size: 1.1rem;
     flex-shrink: 0;
   }
+  .result-type-badge svg { width: 18px; height: 18px; }
 
-  .result-info { 
-    flex: 1; 
+  .result-info {
+    flex: 1;
     min-width: 0;
   }
 
   .result-name {
-    font-family: 'Playfair Display', serif; 
-    font-size: 0.95rem;
-    font-weight: 700; 
+    font-family: 'Playfair Display', serif;
+    font-size: 0.95rem; font-weight: 700;
     color: var(--espresso);
-    white-space: nowrap; 
-    overflow: hidden; 
+    white-space: nowrap;
+    overflow: hidden;
     text-overflow: ellipsis;
     margin-bottom: 4px;
     line-height: 1.3;
   }
 
-  .result-type-label { 
-    font-size: 0.68rem; 
-    color: var(--muted); 
-    text-transform: uppercase; 
+  .result-type-label {
+    font-size: 0.68rem;
+    color: var(--muted);
+    text-transform: uppercase;
     letter-spacing: 0.08em;
     line-height: 1.2;
   }
 
   .result-open-badge {
-    font-size: 0.62rem; 
-    font-weight: 600; 
+    font-size: 0.62rem;
+    font-weight: 600;
     padding: 2px 7px;
-    border-radius: 20px; 
-    flex-shrink: 0; 
+    border-radius: 20px;
+    flex-shrink: 0;
     white-space: nowrap;
   }
   .result-open-badge.open { background: #EDFAF3; color: #1A7A4A; }
   .result-open-badge.closed { background: #F5F5F5; color: #888; }
+  .result-open-badge.unknown { background: #FFF4E0; color: #8A5A20; }
 
-  .result-meta { 
-    display: flex; 
-    align-items: center; 
+  .result-meta {
+    display: flex;
+    align-items: center;
     gap: 8px;
     margin-bottom: 6px;
     flex-wrap: wrap;
   }
 
   .result-rating {
-    display: flex; 
-    align-items: center; 
+    display: flex;
+    align-items: center;
     gap: 3px;
-    font-size: 0.75rem; 
-    font-weight: 600; 
+    font-size: 0.75rem;
+    font-weight: 600;
     color: var(--espresso);
     white-space: nowrap;
   }
   .result-rating svg { width: 11px; height: 11px; color: #F5A623; }
 
-  .result-dot { 
-    width: 3px; 
-    height: 3px; 
-    border-radius: 50%; 
+  .result-dot {
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
     background: var(--muted);
     flex-shrink: 0;
   }
 
-  .result-distance, 
-  .result-reviews { 
-    font-size: 0.72rem; 
+  .result-distance,
+  .result-reviews {
+    font-size: 0.72rem;
     color: var(--muted);
     white-space: nowrap;
   }
 
   .result-address {
-    font-size: 0.72rem; 
+    font-size: 0.72rem;
     color: var(--muted);
     margin-top: 4px;
-    white-space: nowrap; 
-    overflow: hidden; 
+    white-space: nowrap;
+    overflow: hidden;
     text-overflow: ellipsis;
-    display: flex; 
-    align-items: center; 
+    display: flex;
+    align-items: center;
     gap: 4px;
   }
   .result-address svg {
@@ -354,6 +299,7 @@ const styles = `
     font-family: 'DM Sans', sans-serif; font-size: 0.75rem; font-weight: 600;
     cursor: pointer; transition: all 0.2s ease; white-space: nowrap;
   }
+  .pill svg { width: 13px; height: 13px; flex-shrink: 0; }
   .pill.inactive {
     background: var(--glass-bg); backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
@@ -383,14 +329,16 @@ const styles = `
     display: flex; align-items: center; justify-content: center;
     font-size: 3.5rem; position: relative; flex-shrink: 0;
   }
+  .info-card-image svg { width: 52px; height: 52px; color: white; }
 
   .info-card-body { padding: 16px 18px 18px; }
 
   .info-card-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 6px; }
 
   .info-card-name {
-    font-family: 'Playfair Display', serif; font-size: 1.2rem;
-    font-weight: 700; color: var(--espresso); line-height: 1.2; flex: 1;
+    font-family: 'Playfair Display', serif;
+    font-size: 1.2rem; font-weight: 700;
+    color: var(--espresso); line-height: 1.2; flex: 1;
   }
 
   .info-card-open {
@@ -399,6 +347,7 @@ const styles = `
   }
   .info-card-open.open { background: #EDFAF3; color: #1A7A4A; }
   .info-card-open.closed { background: #F5F5F5; color: #888; }
+  .info-card-open.unknown { background: #FFF4E0; color: #8A5A20; }
 
   .info-card-meta {
     display: flex; align-items: center; gap: 8px;
@@ -416,8 +365,9 @@ const styles = `
   .info-review-count { font-size: 0.72rem; color: var(--muted); }
 
   .info-card-address {
-    font-size: 0.78rem; color: var(--muted); line-height: 1.4;
-    margin-bottom: 14px; display: flex; align-items: flex-start; gap: 5px;
+    font-size: 0.78rem; color: var(--muted);
+    line-height: 1.4; margin-bottom: 14px;
+    display: flex; align-items: flex-start; gap: 5px;
   }
   .info-card-address svg { width: 12px; height: 12px; flex-shrink: 0; margin-top: 2px; }
 
@@ -436,6 +386,7 @@ const styles = `
   .card-btn.secondary:hover { background: var(--latte); color: white; }
   .card-btn.saved { background: var(--accent); color: var(--cream); }
   .card-btn.saved:hover { background: #e8845a; transform: translateY(-1px); }
+  .card-btn:disabled { opacity: 0.6; cursor: wait; transform: none; }
 
   .close-card {
     position: absolute; top: 12px; right: 12px; background: rgba(255,255,255,0.9);
@@ -458,9 +409,12 @@ const styles = `
   .top-rated-label {
     font-size: 0.62rem; font-weight: 700; letter-spacing: 0.12em;
     text-transform: uppercase; color: var(--accent); margin-bottom: 6px;
+    display: flex; align-items: center; gap: 4px;
   }
+  .top-rated-label svg { width: 10px; height: 10px; }
   .top-rated-item { display: flex; align-items: center; gap: 8px; }
-  .top-rated-emoji { font-size: 1.1rem; }
+  .top-rated-icon { display: flex; color: var(--accent); flex-shrink: 0; }
+  .top-rated-icon svg { width: 18px; height: 18px; }
   .top-rated-info { flex: 1; min-width: 0; }
   .top-rated-name {
     font-size: 0.8rem; font-weight: 600; color: var(--espresso);
@@ -496,6 +450,7 @@ const styles = `
     display: flex; align-items: center; gap: 12px;
     font-size: 0.875rem; color: var(--espresso); border: 1px solid rgba(255,255,255,0.6);
   }
+
   .spinner {
     width: 20px; height: 20px; border: 2px solid var(--steam);
     border-top-color: var(--accent); border-radius: 50%;
@@ -508,14 +463,16 @@ const styles = `
     position: absolute; top: 80px; left: 50%; transform: translateX(-50%);
     z-index: 950; background: #FEF0EE; border: 1px solid #F5C6BC;
     border-radius: 12px; padding: 10px 18px; font-size: 0.82rem;
-    color: #C0392B; box-shadow: 0 4px 16px rgba(197,106,61,0.15); white-space: nowrap;
+    color: #C0392B; box-shadow: 0 4px 16px rgba(197,106,61,0.15);
     cursor: pointer;
+    display: flex; align-items: center; gap: 7px;
   }
+  .error-toast svg { width: 13px; height: 13px; flex-shrink: 0; }
 
   /* ── Skeleton - FIXED CONSISTENT SIZE ── */
   .skeleton-card {
-    background: white; 
-    border-radius: 14px; 
+    background: white;
+    border-radius: 14px;
     padding: 14px;
     margin-bottom: 10px;
     height: 130px;
@@ -523,10 +480,10 @@ const styles = `
     flex-direction: column;
     gap: 8px;
   }
-  .skeleton { 
-    background: linear-gradient(90deg, #f0ebe4 25%, #e8e0d6 50%, #f0ebe4 75%); 
-    background-size: 200% 100%; 
-    animation: shimmer 1.5s infinite; 
+  .skeleton {
+    background: linear-gradient(90deg, #f0ebe4 25%, #e8e0d6 50%, #f0ebe4 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
     border-radius: 6px;
   }
   .skeleton-avatar {
@@ -553,9 +510,9 @@ const styles = `
     flex-direction: column;
     gap: 6px;
   }
-  @keyframes shimmer { 
-    0% { background-position: 200% 0; } 
-    100% { background-position: -200% 0; } 
+  @keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
   }
 
   /* ── Custom map markers ── */
@@ -568,6 +525,7 @@ const styles = `
     font-size: 1rem; box-shadow: 0 4px 12px rgba(0,0,0,0.25);
     cursor: pointer; transition: all 0.2s ease;
   }
+  .map-marker svg { width: 16px; height: 16px; }
   .map-marker:hover { transform: scale(1.15); box-shadow: 0 6px 20px rgba(0,0,0,0.3); }
   .map-marker.selected { transform: scale(1.2); box-shadow: 0 8px 24px rgba(0,0,0,0.35); border-color: white; border-width: 3px; }
 
@@ -583,7 +541,7 @@ const styles = `
   .leaflet-control-zoom { border: none !important; border-radius: 14px !important; overflow: hidden; box-shadow: 0 4px 20px rgba(30,18,8,0.12) !important; }
   .leaflet-control-zoom a { background: white !important; color: var(--espresso) !important; border: none !important; font-size: 16px !important; width: 34px !important; height: 34px !important; line-height: 34px !important; }
   .leaflet-control-zoom a:hover { background: var(--steam) !important; }
-  .leaflet-control-attribution { display: none !important; }
+  .leaflet-control-attribution { font-size: 10px !important; background: rgba(255,255,255,0.75) !important; }
 
   /* ── Page overlays (Profile / Favorites) ── */
   @keyframes overlayFadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -593,29 +551,6 @@ const styles = `
   }
 `;
 
-// ── Image gradient per type ────────────────────────────────────
-const TYPE_GRADIENT: Record<string, string> = {
-  cafe:       "linear-gradient(135deg, #3D1C08 0%, #8B4513 50%, #C56A3D 100%)",
-  restaurant: "linear-gradient(135deg, #1A2744 0%, #2C3E6B 50%, #4A6FA5 100%)",
-  bar:        "linear-gradient(135deg, #2D1B4E 0%, #6B3FA0 50%, #9B6FD0 100%)",
-};
-
-// ── Icons ──────────────────────────────────────────────────────
-const Icon = {
-  Food:           () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><line x1="7" y1="2" x2="7" y2="22"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3zm0 0v7"/></svg>,
-  Bookmark:       () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>,
-  BookmarkFilled: () => <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>,
-  User:           () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
-  Search:         () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
-  Locate:         () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>,
-  Star:           () => <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>,
-  MapPin:         () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>,
-  Close:          () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
-  Navigate:       () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>,
-  Logout:         () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>,
-  X:              () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
-};
-
 // ── Main Component ─────────────────────────────────────────────
 export default function HomePage({ onLogout, user, onUserUpdate }: HomePageProps) {
   const mapRef     = useRef<HTMLDivElement>(null);
@@ -623,21 +558,29 @@ export default function HomePage({ onLogout, user, onUserUpdate }: HomePageProps
   const markersRef = useRef<any[]>([]);
   const userMarker = useRef<any>(null);
 
-  const [activeNav,     setActiveNav]     = useState<NavItem>("food");
-  const [activeFilter,  setActiveFilter]  = useState<FilterType>("all");
-  const [selectedSpot,  setSelectedSpot]  = useState<Spot | null>(null);
-  const [search,        setSearch]        = useState("");
-  const [leafletLoaded, setLeafletLoaded] = useState(false);
-  const [spots,         setSpots]         = useState<Spot[]>([]);
-  const [loading,       setLoading]       = useState(false);
-  const [locating,      setLocating]      = useState(false);
-  const [error,         setError]         = useState("");
-  const [showProfile,   setShowProfile]   = useState(false);
-  const [showFavorites, setShowFavorites] = useState(false);
-  const [loggingOut,    setLoggingOut]    = useState(false);
-  const [userLat,       setUserLat]       = useState<number | null>(null);
-  const [userLng,       setUserLng]       = useState<number | null>(null);
-  const [favorites,     setFavorites]     = useState<Set<number>>(new Set());
+  // ── State (one value per state machine) ─────────────────────
+  const [nav,            setNav]            = useState<DiscoveryNav>("discover");
+  const [filter,         setFilter]         = useState<SpotTypeFilter>("all");
+  const [selectedSpot,   setSelectedSpot]   = useState<Spot | null>(null);
+  const [search,         setSearch]         = useState("");
+  const [leafletLoaded,  setLeafletLoaded]  = useState(false);
+  const [spotsState,     setSpotsState]     = useState<SpotsState>(emptySpotsState);
+  const [locationState,  setLocationState]  = useState<LocationState>({ status: "idle" });
+  const [favoritesState, setFavoritesState] = useState<FavoritesState>(emptyFavoritesState);
+  const [loggingOut,     setLoggingOut]     = useState(false);
+
+  const spots = spotsState.spots;
+  const isLoading = spotsState.status === "loading";
+  const located = locationState.status === "located";
+
+  /** The list order the subtitle promises: distance when we know where we are. */
+  const sortMode: SpotSort = located ? "distance" : "rating";
+  const visibleSpots = useMemo(() => sortSpots(spots, sortMode), [spots, sortMode]);
+
+  const topRated = useMemo(() => {
+    if (spots.length === 0) return null;
+    return [...spots].sort((a, b) => b.rating - a.rating)[0];
+  }, [spots]);
 
   const handleLogout = async () => {
     setLoggingOut(true);
@@ -658,6 +601,78 @@ export default function HomePage({ onLogout, user, onUserUpdate }: HomePageProps
     document.head.appendChild(script);
   }, []);
 
+  // ── Render markers ────────────────────────────────────────
+  const renderMarkers = useCallback((spotList: Spot[]) => {
+    if (!leafletMap.current) return;
+    const L = (window as any).L;
+    markersRef.current.forEach(m => m.remove());
+    markersRef.current = [];
+    spotList.forEach(spot => {
+      if (!spot.lat || !spot.lng) return;
+      const color = TYPE_COLOR[spot.type];
+      const html  = `
+        <div class="map-marker-wrap">
+          <div class="map-marker" style="background:${color}">
+            ${typeGlyphMarkup(spot.type, "#ffffff")}
+          </div>
+        </div>`;
+      const icon = L.divIcon({ html, className:"", iconSize:[36,36], iconAnchor:[18,36] });
+      const marker = L.marker([spot.lat,spot.lng],{icon})
+        .addTo(leafletMap.current)
+        .bindTooltip(spot.name,{className:"marker-tooltip",direction:"top",offset:[0,-32]});
+      marker.on("click",()=>{ setSelectedSpot(spot); leafletMap.current.panTo([spot.lat,spot.lng]); });
+      markersRef.current.push(marker);
+    });
+  }, []);
+
+  // Markers follow the (sorted) list.
+  useEffect(() => {
+    renderMarkers(visibleSpots);
+  }, [visibleSpots, renderMarkers]);
+
+  // ── API helpers ────────────────────────────────────────────
+
+  /** Fetch JSON, throwing on a non-2xx response so failures are never silent. */
+  const getJson = async (url: string, init?: RequestInit): Promise<any[]> => {
+    const res = await fetch(url, init);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  };
+
+  const postNearby = (lat: number, lng: number, type?: string) =>
+    getJson(`${BASE_URL}/api/establishments/nearby`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ latitude: lat, longitude: lng, radiusKm: 10, limit: 50, ...(type ? { type } : {}) }),
+    });
+
+  /**
+   * The single entry point for loading places.
+   *
+   * Four near-identical fetch/map/error pipelines used to live side by side
+   * (`fetchAll`, `fetchNearby`, `handleSearch`, `handleFilter`) and two of
+   * them forgot to check `res.ok`, so a 500 silently produced an empty list
+   * instead of an error.
+   */
+  const loadSpots = useCallback(async (
+    run: () => Promise<any[]>,
+    failureMessage: string,
+  ) => {
+    setSpotsState(prev => ({ status: "loading", spots: prev.spots }));
+    try {
+      const raw = await run();
+      setSpotsState({ status: "ready", spots: toSpots(raw) });
+    } catch {
+      setSpotsState(prev => ({ status: "error", spots: prev.spots, message: failureMessage }));
+    }
+  }, []);
+
+  const fetchAll = useCallback(
+    () => loadSpots(() => getJson(`${BASE_URL}/api/establishments`), "Could not load places. Is the backend running?"),
+    [loadSpots],
+  );
+
   // ── Init map — runs once on load, never on overlay toggles ──
   useEffect(() => {
     if (!leafletLoaded || !mapRef.current || leafletMap.current) return;
@@ -671,15 +686,14 @@ export default function HomePage({ onLogout, user, onUserUpdate }: HomePageProps
     }).addTo(leafletMap.current);
     setTimeout(() => leafletMap.current?.invalidateSize(), 100);
     fetchAll();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [leafletLoaded]);
+  }, [leafletLoaded, fetchAll]);
 
   // ── Recalculate map size when overlays close ───────────────
   useEffect(() => {
-    if (!showProfile && !showFavorites && leafletMap.current) {
+    if (nav === "discover" && leafletMap.current) {
       setTimeout(() => leafletMap.current?.invalidateSize(), 80);
     }
-  }, [showProfile, showFavorites]);
+  }, [nav]);
 
   // ── Load favorites from Supabase ───────────────────────────
   useEffect(() => {
@@ -691,101 +705,113 @@ export default function HomePage({ onLogout, user, onUserUpdate }: HomePageProps
         .select("establishment_id")
         .eq("user_id", authUser.id);
       if (data) {
-        setFavorites(new Set(data.map((r: any) => Number(r.establishment_id))));
+        setFavoritesState(prev => ({
+          ...prev,
+          ids: new Set(data.map((r: any) => Number(r.establishment_id))),
+        }));
       }
     };
     loadFavorites();
   }, []);
 
+  /**
+   * Save / unsave a place.
+   *
+   * The write is optimistic so the tap registers instantly, and it is rolled
+   * back if the database rejects it. The old version ignored the write
+   * result entirely, so a failed save left the button showing "Saved" with
+   * nothing stored.
+   */
   const toggleFavorite = async (spot: Spot) => {
     const { data: { user: authUser } } = await supabase.auth.getUser();
     if (!authUser) return;
-    const isFaved = favorites.has(spot.id);
-    const next = new Set(favorites);
-    if (isFaved) {
-      next.delete(spot.id);
-      await supabase
-        .from("favorites")
-        .delete()
-        .eq("user_id", authUser.id)
-        .eq("establishment_id", spot.id);
-    } else {
-      next.add(spot.id);
-      await supabase
-        .from("favorites")
-        .insert({ user_id: authUser.id, establishment_id: spot.id });
-    }
-    setFavorites(next);
+
+    const wasFavorite = favoritesState.ids.has(spot.id);
+    const previousIds = favoritesState.ids;
+    const nextIds = new Set(previousIds);
+    if (wasFavorite) nextIds.delete(spot.id);
+    else nextIds.add(spot.id);
+
+    setFavoritesState(prev => ({
+      ...prev,
+      ids: nextIds,
+      pending: new Set(prev.pending).add(spot.id),
+      error: "",
+    }));
+
+    const write = wasFavorite
+      ? supabase.from("favorites").delete()
+          .eq("user_id", authUser.id)
+          .eq("establishment_id", spot.id)
+      : supabase.from("favorites").insert({ user_id: authUser.id, establishment_id: spot.id });
+
+    const { error } = await write;
+
+    setFavoritesState(prev => {
+      const pending = new Set(prev.pending);
+      pending.delete(spot.id);
+      if (error) {
+        return {
+          ids: previousIds,
+          pending,
+          error: "Could not update your saved places. Please try again.",
+        };
+      }
+      return { ...prev, pending, error: "" };
+    });
   };
 
-  // ── API helpers ────────────────────────────────────────────
-  const fetchAll = async () => {
-    setLoading(true); setError("");
-    try {
-      const res  = await fetch(`${BASE_URL}/api/establishments`);
-      if (!res.ok) throw new Error();
-      const data = await res.json();
-      const mapped = toSpots(data);
-      setSpots(mapped);
-      renderMarkers(mapped);
-    } catch {
-      setError("Could not load places. Is the backend running?");
-    } finally { setLoading(false); }
-  };
-
-  const fetchNearby = async (lat: number, lng: number, type?: string) => {
-    setLoading(true); setError("");
-    try {
-      const body: any = { latitude: lat, longitude: lng, radiusKm: 10, limit: 50 };
-      if (type) body.type = type;
-      const res  = await fetch(`${BASE_URL}/api/establishments/nearby`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) throw new Error();
-      const data   = await res.json();
-      const mapped = toSpots(data);
-      setSpots(mapped);
-      renderMarkers(mapped);
-    } catch { setError("Could not find nearby places."); }
-    finally { setLoading(false); }
-  };
-
+  // ── Search / filter / locate ──────────────────────────────
   const handleSearch = async (q: string) => {
-    if (!q.trim()) { fetchAll(); return; }
-    setLoading(true); setError("");
-    try {
-      const res  = await fetch(`${BASE_URL}/api/establishments/search?q=${encodeURIComponent(q)}`);
-      const data = await res.json();
-      const mapped = toSpots(data);
-      setSpots(mapped);
-      renderMarkers(mapped);
-    } catch { setError("Search failed."); }
-    finally { setLoading(false); }
+    setFilter("all");
+    setSelectedSpot(null);
+    if (!q.trim()) { await fetchAll(); return; }
+
+    // The backend uses these to run a nearby Overpass query instead of a
+    // slow worldwide one. Without a location it still works, just broadly.
+    const params = new URLSearchParams({ q });
+    if (locationState.status === "located") {
+      params.set("lat", String(locationState.lat));
+      params.set("lng", String(locationState.lng));
+    }
+    await loadSpots(
+      () => getJson(`${BASE_URL}/api/establishments/search?${params.toString()}`),
+      "Search failed.",
+    );
   };
 
-  const handleFilter = async (f: FilterType) => {
-    setActiveFilter(f); setSelectedSpot(null);
-    if (userLat && userLng) { await fetchNearby(userLat, userLng, f === "all" ? undefined : f); return; }
-    setLoading(true);
-    try {
-      const url  = f === "all" ? `${BASE_URL}/api/establishments` : `${BASE_URL}/api/establishments/type/${f}`;
-      const res  = await fetch(url);
-      const data = await res.json();
-      const mapped = toSpots(data);
-      setSpots(mapped);
-      renderMarkers(mapped);
-    } catch { setError("Filter failed."); }
-    finally { setLoading(false); }
+  const handleFilter = async (f: SpotTypeFilter) => {
+    setFilter(f);
+    setSelectedSpot(null);
+    const type = f === "all" ? undefined : f;
+
+    if (located) {
+      await loadSpots(
+        () => postNearby(locationState.lat, locationState.lng, type),
+        "Could not find nearby places.",
+      );
+      return;
+    }
+
+    const url = f === "all"
+      ? `${BASE_URL}/api/establishments`
+      : `${BASE_URL}/api/establishments/type/${f}`;
+    await loadSpots(() => getJson(url), "Filter failed.");
   };
 
   const handleLocate = () => {
-    if (!navigator.geolocation) { setError("Geolocation not supported."); return; }
-    setLocating(true); setError("");
+    if (!navigator.geolocation) {
+      setLocationState({ status: "unavailable", message: "This browser does not support location." });
+      return;
+    }
+
+    setLocationState({ status: "locating" });
+
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         const lat = pos.coords.latitude, lng = pos.coords.longitude;
-        setUserLat(lat); setUserLng(lng);
+        setLocationState({ status: "located", lat, lng });
+
         if (leafletMap.current) {
           const L = (window as any).L;
           leafletMap.current.setView([lat, lng], 14);
@@ -797,117 +823,75 @@ export default function HomePage({ onLogout, user, onUserUpdate }: HomePageProps
           userMarker.current = L.marker([lat,lng],{icon:uIcon}).addTo(leafletMap.current)
             .bindTooltip("You are here",{className:"marker-tooltip",direction:"top",offset:[0,-12]});
         }
-        await fetchNearby(lat, lng, activeFilter === "all" ? undefined : activeFilter);
-        setLocating(false);
+
+        await loadSpots(
+          () => postNearby(lat, lng, filter === "all" ? undefined : filter),
+          "Could not find nearby places.",
+        );
       },
-      () => { setLocating(false); setError("Could not get location. Allow location access."); }
+      (err) => {
+        // Without a timeout the browser could leave the button on "Locating…"
+        // forever, so every failure path is now classified explicitly.
+        if (err.code === err.PERMISSION_DENIED) {
+          setLocationState({ status: "unavailable", message: "Location access was denied. Allow it to see places near you." });
+        } else if (err.code === err.TIMEOUT) {
+          setLocationState({ status: "timeout", message: "Timed out while finding your location. Please try again." });
+        } else {
+          setLocationState({ status: "unavailable", message: "Could not determine your location." });
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
     );
   };
 
-  // ── Render markers ────────────────────────────────────────
-  const renderMarkers = useCallback((spotList: Spot[]) => {
-    if (!leafletMap.current) return;
-    const L = (window as any).L;
-    markersRef.current.forEach(m => m.remove());
-    markersRef.current = [];
-    spotList.forEach(spot => {
-      if (!spot.lat || !spot.lng) return;
-      const color = TYPE_COLOR[spot.type] || "#C56A3D";
-      const emoji = TYPE_EMOJI[spot.type] || "📍";
-      const html  = `
-        <div class="map-marker-wrap">
-          <div class="map-marker" style="background:${color}">
-            <span style="font-size:1rem">${emoji}</span>
-          </div>
-        </div>`;
-      const icon = L.divIcon({ html, className:"", iconSize:[36,36], iconAnchor:[18,36] });
-      const marker = L.marker([spot.lat,spot.lng],{icon})
-        .addTo(leafletMap.current)
-        .bindTooltip(spot.name,{className:"marker-tooltip",direction:"top",offset:[0,-32]});
-      marker.on("click",()=>{ setSelectedSpot(spot); leafletMap.current.panTo([spot.lat,spot.lng]); });
-      markersRef.current.push(marker);
-    });
-  }, []);
-
-  const toSpots = (data: any[]): Spot[] =>
-    data.map(e => ({
-      id: e.establishmentId, name: e.name,
-      type: (e.estabType||"cafe") as "cafe"|"restaurant"|"bar",
-      rating: e.averageRating||0, reviewCount: e.reviewCount||0,
-      distance: e.distanceKm ? `${e.distanceKm.toFixed(1)} km` : "",
-      isOpen: e.isOpen !== false,
-      lat: e.latitude, lng: e.longitude,
-      address: e.address||"", description: e.description||"", phone: e.phone||"",
-    }));
-
-  const topRated = spots.length > 0
-    ? [...spots].sort((a,b) => b.rating - a.rating)[0]
-    : null;
-
   // ── Nav helper ─────────────────────────────────────────────
-  const handleNav = (id: NavItem) => {
-    setActiveNav(id);
-    if (id === "profile")  { setShowProfile(true);  setShowFavorites(false); }
-    if (id === "saved")    { setShowFavorites(true); setShowProfile(false);  }
-    if (id === "food")     { setShowProfile(false);  setShowFavorites(false); }
-  };
+  const handleNav = (id: DiscoveryNav) => setNav(id);
 
   // ── Overlay close helper ───────────────────────────────────
-  const closeOverlay = () => {
-    setShowProfile(false);
-    setShowFavorites(false);
-    setActiveNav("food");
+  const closeOverlay = () => setNav("discover");
+
+  const toastMessage =
+      spotsState.status === "error"   ? spotsState.message
+    : locationState.status === "unavailable" ? locationState.message
+    : locationState.status === "timeout"    ? locationState.message
+    : favoritesState.error          ? favoritesState.error
+    : "";
+
+  const dismissToast = () => {
+    if (spotsState.status === "error") setSpotsState(prev => ({ status: "ready", spots: prev.spots }));
+    if (locationState.status === "unavailable" || locationState.status === "timeout") {
+      setLocationState({ status: "idle" });
+    }
+    if (favoritesState.error) setFavoritesState(prev => ({ ...prev, error: "" }));
   };
 
   return (
     <>
       <style>{styles}</style>
+      <style>{SIDEBAR_STYLES}</style>
 
       {/* ── Main app — always mounted so the map is never destroyed ── */}
       <div className="home-container">
 
         {/* ── Sidebar ── */}
-        <aside className="sidebar">
-          <div className="sidebar-brand">
-            <div className="brand-mark">AK</div>
-            <span className="brand-name">AratKain</span>
-          </div>
-          <nav className="sidebar-nav">
-            {([
-              { id:"food"    as NavItem, icon:<Icon.Food/>    },
-              { id:"saved"   as NavItem, icon:<Icon.Bookmark/>},
-              { id:"profile" as NavItem, icon:<Icon.User/>    },
-            ] as const).map(({id,icon}) => (
-              <button key={id}
-                className={`nav-btn ${activeNav===id?"active":""}`}
-                onClick={() => handleNav(id)}
-                title={id.charAt(0).toUpperCase()+id.slice(1)}
-              >{icon}</button>
-            ))}
-          </nav>
-          <div className="sidebar-bottom">
-            <button className="logout-btn" onClick={handleLogout} disabled={loggingOut} title="Log out">
-              <Icon.Logout/>
-              <span>{loggingOut?"...":"Out"}</span>
-            </button>
-          </div>
-        </aside>
+        <Sidebar
+          active={nav}
+          onNavigate={handleNav}
+          onLogout={handleLogout}
+          loggingOut={loggingOut}
+        />
 
         {/* ── Results Panel ── */}
         <div className="results-panel">
           <div className="results-header">
-            <div className="results-title">
-              {activeFilter === "all" ? "Discover Places" :
-               activeFilter === "cafe" ? "☕ Cafes" :
-               activeFilter === "restaurant" ? "🍽️ Restaurants" : "🍸 Bars"}
-            </div>
+            <div className="results-title">{FILTER_TITLE[filter]}</div>
             <div className="results-subtitle">
               {spots.length} place{spots.length !== 1 ? "s" : ""} found
-              {userLat ? " · sorted by distance" : " · sorted by rating"}
+              {located ? " · sorted by distance" : " · sorted by rating"}
             </div>
           </div>
           <div className="results-list">
-            {loading ? (
+            {isLoading ? (
               Array.from({length: 4}).map((_,i) => (
                 <div key={i} className="skeleton-card">
                   <div className="skeleton-card-content">
@@ -920,21 +904,22 @@ export default function HomePage({ onLogout, user, onUserUpdate }: HomePageProps
                   </div>
                 </div>
               ))
-            ) : spots.map(spot => (
+            ) : visibleSpots.map(spot => (
               <div key={spot.id}
                 className={`result-card ${selectedSpot?.id===spot.id?"selected":""}`}
                 onClick={() => { setSelectedSpot(spot); leafletMap.current?.panTo([spot.lat,spot.lng]); }}
               >
                 <div className="result-card-top">
-                  <div className="result-type-badge" style={{background:`${TYPE_COLOR[spot.type]}20`}}>
-                    <span>{TYPE_EMOJI[spot.type]}</span>
+                  <div className="result-type-badge"
+                    style={{background:`${TYPE_COLOR[spot.type]}20`, color:TYPE_COLOR[spot.type]}}>
+                    {TYPE_ICON[spot.type]()}
                   </div>
                   <div className="result-info">
                     <div className="result-name">{spot.name}</div>
-                    <div className="result-type-label">{spot.type}</div>
+                    <div className="result-type-label">{TYPE_LABEL[spot.type]}</div>
                   </div>
-                  <span className={`result-open-badge ${spot.isOpen?"open":"closed"}`}>
-                    {spot.isOpen?"Open":"Closed"}
+                  <span className={`result-open-badge ${spot.openState}`}>
+                    {spot.openState === "open" ? "Open" : spot.openState === "closed" ? "Closed" : "Hours unknown"}
                   </span>
                 </div>
                 <div className="result-meta">
@@ -964,15 +949,15 @@ export default function HomePage({ onLogout, user, onUserUpdate }: HomePageProps
         <div className="map-area">
           <div id="map" ref={mapRef}/>
 
-          {loading && (
+          {isLoading && (
             <div className="loading-overlay">
               <div className="spinner"/> <span>Finding places...</span>
             </div>
           )}
 
-          {error && (
-            <div className="error-toast" onClick={() => setError("")}>
-              ⚠ {error} &nbsp;✕
+          {toastMessage && (
+            <div className="error-toast" onClick={dismissToast}>
+              <Icon.Alert/> <span>{toastMessage}</span> <Icon.Close/>
             </div>
           )}
 
@@ -992,8 +977,8 @@ export default function HomePage({ onLogout, user, onUserUpdate }: HomePageProps
                 </button>
               )}
             </div>
-            <button className="locate-btn" onClick={handleLocate} disabled={locating}>
-              <Icon.Locate/> {locating ? "Locating…" : "Near Me"}
+            <button className="locate-btn" onClick={handleLocate} disabled={locationState.status === "locating"}>
+              <Icon.Locate/> {locationState.status === "locating" ? "Locating…" : "Near Me"}
             </button>
           </div>
 
@@ -1001,10 +986,10 @@ export default function HomePage({ onLogout, user, onUserUpdate }: HomePageProps
           <div className="filter-pills">
             {FILTERS.map(f => (
               <button key={f.id}
-                className={`pill ${activeFilter===f.id?"active":"inactive"}`}
+                className={`pill ${filter===f.id?"active":"inactive"}`}
                 onClick={() => handleFilter(f.id)}
               >
-                {f.emoji} {f.label}
+                {f.icon} {f.label}
               </button>
             ))}
           </div>
@@ -1015,13 +1000,13 @@ export default function HomePage({ onLogout, user, onUserUpdate }: HomePageProps
               style={{cursor:"pointer"}}
               onClick={() => { setSelectedSpot(topRated); leafletMap.current?.panTo([topRated.lat,topRated.lng]); }}
             >
-              <div className="top-rated-label">⭐ Top Rated Nearby</div>
+              <div className="top-rated-label"><Icon.Star/> Top Rated Nearby</div>
               <div className="top-rated-item">
-                <span className="top-rated-emoji">{TYPE_EMOJI[topRated.type]}</span>
+                <span className="top-rated-icon">{TYPE_ICON[topRated.type]()}</span>
                 <div className="top-rated-info">
                   <div className="top-rated-name">{topRated.name}</div>
                   <div className="top-rated-score">
-                    <Icon.Star/> {topRated.rating.toFixed(1)} · {topRated.type}
+                    <Icon.Star/> {topRated.rating.toFixed(1)} · {TYPE_LABEL[topRated.type]}
                   </div>
                 </div>
               </div>
@@ -1036,13 +1021,13 @@ export default function HomePage({ onLogout, user, onUserUpdate }: HomePageProps
               </button>
               <div className="info-card-image"
                 style={{background: TYPE_GRADIENT[selectedSpot.type]}}>
-                <span style={{fontSize:"3rem"}}>{TYPE_EMOJI[selectedSpot.type]}</span>
+                {TYPE_ICON[selectedSpot.type]()}
               </div>
               <div className="info-card-body">
                 <div className="info-card-top">
                   <div className="info-card-name">{selectedSpot.name}</div>
-                  <span className={`info-card-open ${selectedSpot.isOpen?"open":"closed"}`}>
-                    {selectedSpot.isOpen?"Open":"Closed"}
+                  <span className={`info-card-open ${selectedSpot.openState}`}>
+                    {selectedSpot.openState === "open" ? "Open" : selectedSpot.openState === "closed" ? "Closed" : "Hours unknown"}
                   </span>
                 </div>
                 <div className="info-card-meta">
@@ -1054,7 +1039,7 @@ export default function HomePage({ onLogout, user, onUserUpdate }: HomePageProps
                     <span className="info-review-count">{selectedSpot.reviewCount} reviews</span>
                   </>}
                   <div className="info-meta-dot"/>
-                  <span className="info-card-type-label">{selectedSpot.type}</span>
+                  <span className="info-card-type-label">{TYPE_LABEL[selectedSpot.type]}</span>
                   {selectedSpot.distance && <>
                     <div className="info-meta-dot"/>
                     <span className="info-review-count">{selectedSpot.distance}</span>
@@ -1066,7 +1051,6 @@ export default function HomePage({ onLogout, user, onUserUpdate }: HomePageProps
                   </div>
                 )}
                 <div className="info-card-actions">
-                  {/* ── FIX: use name + address query instead of raw coordinates ── */}
                   <button
                     className="card-btn primary"
                     onClick={() => {
@@ -1079,10 +1063,11 @@ export default function HomePage({ onLogout, user, onUserUpdate }: HomePageProps
                     <Icon.Navigate/> Directions
                   </button>
                   <button
-                    className={`card-btn ${favorites.has(selectedSpot.id) ? "saved" : "secondary"}`}
+                    className={`card-btn ${favoritesState.ids.has(selectedSpot.id) ? "saved" : "secondary"}`}
                     onClick={() => toggleFavorite(selectedSpot)}
+                    disabled={isFavoritePending(favoritesState, selectedSpot.id)}
                   >
-                    {favorites.has(selectedSpot.id)
+                    {favoritesState.ids.has(selectedSpot.id)
                       ? <><Icon.BookmarkFilled/> Saved</>
                       : <><Icon.Bookmark/> Save</>
                     }
@@ -1103,7 +1088,7 @@ export default function HomePage({ onLogout, user, onUserUpdate }: HomePageProps
       </div>
 
       {/* ── Profile overlay — map stays alive underneath ── */}
-      {showProfile && (
+      {nav === "profile" && (
         <div className="page-overlay">
           <ProfilePage
             user={user}
@@ -1114,12 +1099,12 @@ export default function HomePage({ onLogout, user, onUserUpdate }: HomePageProps
       )}
 
       {/* ── Favorites overlay — map stays alive underneath ── */}
-      {showFavorites && (
+      {nav === "saved" && (
         <div className="page-overlay">
           <FavoritesPage
             user={user}
-            favorites={favorites}
-            onBack={closeOverlay}
+            favorites={favoritesState.ids}
+            onNavigate={handleNav}
             onViewOnMap={(spot) => {
               closeOverlay();
               setSelectedSpot(spot);
@@ -1127,7 +1112,6 @@ export default function HomePage({ onLogout, user, onUserUpdate }: HomePageProps
             }}
             onToggleFavorite={toggleFavorite}
             onLogout={onLogout}
-            onProfile={() => { setShowFavorites(false); setShowProfile(true); setActiveNav("profile"); }}
           />
         </div>
       )}
